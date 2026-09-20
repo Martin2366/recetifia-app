@@ -6,7 +6,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { canonicalizeUrl, detectSource, truncate, jsonLdEsSuficiente, httpGet, subtitulosATexto } from './src/util.js';
 import { fetchContent } from './src/fetchers.js';
-import { listModels, structureRecipe, estimateCost } from './src/structure.js';
+import { listModels, structureRecipe, structureFromYoutube, estimateCost } from './src/structure.js';
 import { transcribeFile, transcribeUrl } from './src/transcribe.js';
 import { fetchViaApify, apifySoporta } from './src/apify.js';
 
@@ -170,6 +170,41 @@ async function procesar(entrada, i, total) {
 
 // --- segunda pasada: el audio ------------------------------------------
 
+/** Gemini ingiere la URL de YouTube y escucha el video por nosotros. Gratis. */
+async function conYoutube(fila, contenido, salida) {
+  const t = Date.now();
+  try {
+    process.stdout.write(`   ${C.dim}Gemini escuchando el video...${C.reset}\r`);
+    const { receta, usage } = await structureFromYoutube({
+      apiKey: ENV.geminiKey, model: ENV.geminiModel,
+      url: fila.url, texto: contenido.texto,
+    });
+
+    const antesPasos = fila.pasos;
+    fila.tokens_in += usage.in;
+    fila.tokens_out += usage.out;
+    fila.coste_usd += estimateCost(usage, ENV.priceIn, ENV.priceOut);
+    fila.ruta = 'video+gemini';
+    fila.origen_audio = 'gemini:youtube';
+    fila.titulo = receta.titulo || fila.titulo;
+    fila.ingredientes = receta.ingredientes?.length || 0;
+    fila.pasos = receta.pasos?.length || 0;
+    fila.confianza = receta.confianza || fila.confianza;
+    fila.motivo = receta.motivo || '';
+    fila.necesita_audio = false;
+    fila.ms += Date.now() - t;
+
+    const col = fila.confianza === 'alta' ? C.green : fila.confianza === 'media' ? C.yellow : C.red;
+    console.log(`   ${C.cyan}+VIDEO${C.reset} ${col}${fila.confianza.toUpperCase()}${C.reset} "${truncate(fila.titulo, 45)}" · ${fila.ingredientes} ing · ${C.bold}${antesPasos} -> ${fila.pasos} pasos${C.reset} · gemini lee el video · $${fila.coste_usd.toFixed(5)}`);
+    return { fila, receta, contenido };
+  } catch (err) {
+    fila.nota_audio = `gemini/youtube: ${String(err?.message || err)}`;
+    fila.ms += Date.now() - t;
+    console.log(`   ${C.red}video fallo${C.reset} ${truncate(fila.nota_audio, 90)}`);
+    return salida;
+  }
+}
+
 /**
  * TikTok genera subtitulos automaticos y los publica. Si estan en espanol,
  * tenemos la transcripcion sin descargar el video ni gastar una llamada a Whisper.
@@ -197,6 +232,10 @@ async function desdeSubtitulos(a) {
  */
 async function conAudio(fila, contenido, recetaPrevia) {
   const salida = { fila, receta: recetaPrevia, contenido };
+
+  // YouTube es un caso aparte y mucho mejor: Gemini acepta la URL directamente
+  // y procesa el audio por su cuenta. Ni Apify, ni descarga, ni Whisper.
+  if (fila.source === 'youtube') return await conYoutube(fila, contenido, salida);
 
   if (!ENV.apifyToken || !ENV.groqKey) return salida;
   if (!apifySoporta(fila.source)) {
@@ -409,6 +448,17 @@ async function main() {
     for (const m of models) console.log(`  ${m.name.padEnd(42)} ${C.dim}${m.display}${C.reset}`);
     console.log('\nElige uno y ponlo en GEMINI_MODEL dentro de .env.');
     console.log('Para este spike interesa un Flash: barato y suficiente.\n');
+    return;
+  }
+
+  // Rehace los informes desde out/resultados.json, sin volver a llamar a nada.
+  if (args.includes('--informe')) {
+    const resultados = JSON.parse(await readFile('out/resultados.json', 'utf8'));
+    const filas = resultados.map((r) => r.fila);
+    await writeFile('out/resultados.csv', toCsv(filas), 'utf8');
+    await writeFile('out/revision.md', toRevision(resultados), 'utf8');
+    resumen(filas);
+    console.log('  Reescrito: out/resultados.csv · out/revision.md\n');
     return;
   }
 

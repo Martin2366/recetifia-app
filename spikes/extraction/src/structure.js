@@ -75,14 +75,18 @@ export async function structureRecipe({ apiKey, model, texto, contexto = {} }) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, responseMimeType: 'application/json', responseSchema: SCHEMA },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', responseSchema: SCHEMA },
     }),
   });
 
   const j = await res.json().catch(() => null);
   if (!res.ok) throw new Error(j?.error?.message || `HTTP ${res.status}`);
 
-  const raw = j?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+  const cand = j?.candidates?.[0];
+  const raw = cand?.content?.parts?.map((p) => p.text).join('') || '';
+  if (cand?.finishReason && cand.finishReason !== 'STOP') {
+    throw new Error(`la respuesta se corto: ${cand.finishReason}`);
+  }
   let receta;
   try {
     receta = JSON.parse(raw);
@@ -99,6 +103,46 @@ export async function structureRecipe({ apiKey, model, texto, contexto = {} }) {
       total: u.totalTokenCount || 0,
     },
   };
+}
+
+/**
+ * Gemini acepta una URL de YouTube y procesa el audio y el video por su cuenta.
+ * Sin descargas, sin Apify, sin Whisper: para esta fuente el paso a paso sale gratis.
+ */
+export async function structureFromYoutube({ apiKey, model, url, texto = '' }) {
+  const prompt = [
+    INSTRUCCIONES,
+    '---',
+    'El video adjunto es la fuente principal. Escucha lo que dice quien cocina:',
+    'ahi estan los pasos, aunque no aparezcan escritos.',
+    texto ? `\nTexto de la descripcion:\n${texto.slice(0, 8000)}` : '',
+  ].filter(Boolean).join('\n');
+
+  const res = await fetch(`${BASE}/models/${model}:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [{ text: prompt }, { fileData: { fileUri: url } }],
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', responseSchema: SCHEMA },
+    }),
+  });
+
+  const j = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(j?.error?.message || `HTTP ${res.status}`);
+
+  const cand = j?.candidates?.[0];
+  const raw = cand?.content?.parts?.map((p) => p.text).join('') || '';
+  if (cand?.finishReason && cand.finishReason !== 'STOP') {
+    throw new Error(`la respuesta se corto: ${cand.finishReason}`);
+  }
+  let receta;
+  try { receta = JSON.parse(raw); } catch { throw new Error('la respuesta no era JSON valido'); }
+
+  const u = j.usageMetadata || {};
+  return { receta, usage: { in: u.promptTokenCount || 0, out: u.candidatesTokenCount || 0, total: u.totalTokenCount || 0 } };
 }
 
 export function estimateCost(usage, priceInPerM, priceOutPerM) {
