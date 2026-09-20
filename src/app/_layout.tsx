@@ -47,13 +47,15 @@ function Guardian({ children }: { children: ReactNode }) {
       // Ya estaba oculta. No es un problema.
     });
 
-    const enTabs = segmentos[0] === '(tabs)';
     const enLogin = segmentos[0] === 'login';
+    const enReparto = segmentos.length === 0; // la pantalla index
 
-    // Los dos casos han de estar cubiertos: quedarse fuera de ambos deja al
-    // usuario atrapado en la pantalla de reparto, sin nada que mirar.
+    // El guardian solo expulsa de donde NO se debe estar. Comprobar "no esta en
+    // una pestana" en su lugar rebotaba al usuario desde cualquier pantalla
+    // legitima fuera de las pestanas, como /receta/nueva: se abria y volvia
+    // sola a la biblioteca.
     if (!session && !enLogin) router.replace('/login');
-    else if (session && !enTabs) router.replace('/(tabs)');
+    else if (session && (enLogin || enReparto)) router.replace('/(tabs)');
   }, [session, cargando, segmentos, router, navegador?.key]);
 
   if (cargando) {
