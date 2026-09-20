@@ -29,3 +29,13 @@ Thumbs.db
 
 # Ajustes locales de Claude Code (personales, no del proyecto)
 .claude/settings.local.json
+
+# Expo / RN adicionales (del template oficial)
+*.tsbuildinfo
+.metro-health-check*
+.kotlin/
+*.p12
+*.p8
+*.pem
+*.mobileprovision
+yarn-debug.*
