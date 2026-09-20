@@ -221,3 +221,26 @@ export function jsonLdEsSuficiente(receta) {
   if (ings.length === 1 && (ings[0].match(/,/g) || []).length >= 2) return false; // lista colapsada en una cadena
   return ings.length >= 3 && pasos.length >= 2;
 }
+
+/**
+ * Convierte subtitulos WebVTT o SRT en texto corrido.
+ * TikTok publica sus propios subtitulos automaticos: es una transcripcion
+ * ya hecha, gratis y sin descargar el video.
+ */
+export function subtitulosATexto(raw = '') {
+  const lineas = raw.split(/\r?\n/);
+  const out = [];
+  for (const l of lineas) {
+    const t = l.trim();
+    if (!t) continue;
+    if (/^WEBVTT/i.test(t)) continue;
+    if (/^\d+$/.test(t)) continue;                 // indice de bloque en SRT
+    if (/-->/.test(t)) continue;                   // linea de tiempos
+    if (/^(NOTE|STYLE|REGION)\b/i.test(t)) continue;
+    const limpio = t.replace(/<[^>]+>/g, '').trim(); // etiquetas de karaoke
+    if (!limpio) continue;
+    if (out[out.length - 1] === limpio) continue;  // los subtitulos repiten mucho
+    out.push(limpio);
+  }
+  return out.join(' ').replace(/\s+/g, ' ').trim();
+}

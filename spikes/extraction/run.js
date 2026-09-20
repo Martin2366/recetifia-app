@@ -4,10 +4,11 @@
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { canonicalizeUrl, detectSource, truncate, jsonLdEsSuficiente } from './src/util.js';
+import { canonicalizeUrl, detectSource, truncate, jsonLdEsSuficiente, httpGet, subtitulosATexto } from './src/util.js';
 import { fetchContent } from './src/fetchers.js';
 import { listModels, structureRecipe, estimateCost } from './src/structure.js';
-import { transcribeFile } from './src/transcribe.js';
+import { transcribeFile, transcribeUrl } from './src/transcribe.js';
+import { fetchViaApify, apifySoporta } from './src/apify.js';
 
 try { process.loadEnvFile('.env'); } catch { /* sin .env: usamos el entorno tal cual */ }
 
@@ -16,10 +17,14 @@ const ENV = {
   geminiModel: process.env.GEMINI_MODEL || '',
   groqKey: process.env.GROQ_API_KEY || '',
   groqModel: process.env.GROQ_MODEL || 'whisper-large-v3-turbo',
+  apifyToken: process.env.APIFY_TOKEN || '',
+  apifyMax: Number(process.env.APIFY_MAX || 999), // tope de seguridad de gasto por tanda
   priceIn: Number(process.env.PRICE_IN_PER_M || 0.3),
   priceOut: Number(process.env.PRICE_OUT_PER_M || 2.5),
   delayMs: Number(process.env.GEMINI_DELAY_MS || 4500), // tier gratuito ~15 req/min
 };
+
+let apifyUsados = 0;
 
 const MIN_TEXTO = 120; // por debajo de esto no merece la pena gastar una llamada a la IA
 
@@ -64,6 +69,8 @@ async function procesar(entrada, i, total) {
     ingredientes: 0, pasos: 0, confianza: '', motivo: '',
     tokens_in: 0, tokens_out: 0, coste_usd: 0,
     ms: 0, error: '', titulo: '', necesita_audio: false,
+    apify_llamadas: 0, apify_actor: '', transcripcion_chars: 0, origen_audio: '',
+    video_mb: 0, audio_seg: null, nota_audio: '',
   };
 
   process.stdout.write(`${C.dim}[${i + 1}/${total}]${C.reset} ${C.cyan}${source}${C.reset} ${truncate(url, 70)}\n`);
@@ -123,8 +130,8 @@ async function procesar(entrada, i, total) {
       fila.confianza = 'baja';
       fila.motivo = `solo ${contenido.texto.length} caracteres de texto publico`;
       fila.ms = Date.now() - t0;
-      console.log(`   ${C.yellow}TEXTO INSUFICIENTE${C.reset} (${contenido.texto.length} chars) -> necesitaria audio o captura`);
-      return { fila, receta: null, contenido };
+      console.log(`   ${C.yellow}SIN TEXTO${C.reset} (${contenido.texto.length} chars) -> probando con el audio`);
+      return await conAudio(fila, contenido, null);
     }
   }
 
@@ -149,6 +156,9 @@ async function procesar(entrada, i, total) {
 
     const color = fila.confianza === 'alta' ? C.green : fila.confianza === 'media' ? C.yellow : C.red;
     console.log(`   ${color}${fila.confianza.toUpperCase()}${C.reset} "${truncate(fila.titulo, 50)}" · ${fila.ingredientes} ing · ${fila.pasos} pasos · $${fila.coste_usd.toFixed(5)}`);
+
+    // El caption casi nunca trae el procedimiento: lo dicen en voz alta en el video.
+    if (fila.pasos < 2) return await conAudio(fila, contenido, receta);
     return { fila, receta, contenido };
   } catch (err) {
     fila.error = `gemini: ${String(err?.message || err)}`;
@@ -158,11 +168,121 @@ async function procesar(entrada, i, total) {
   }
 }
 
+// --- segunda pasada: el audio ------------------------------------------
+
+/**
+ * TikTok genera subtitulos automaticos y los publica. Si estan en espanol,
+ * tenemos la transcripcion sin descargar el video ni gastar una llamada a Whisper.
+ */
+async function desdeSubtitulos(a) {
+  const links = a.subtitulos || [];
+  if (!links.length) return null;
+
+  const esEspanol = (l) => /^(es|spa)/i.test(l.language || '');
+  const elegido = links.find(esEspanol) || links[0];
+  if (!elegido?.downloadLink) return null;
+
+  const r = await httpGet(elegido.downloadLink, { timeoutMs: 20000 });
+  if (!r.ok || !r.body) return null;
+
+  const texto = subtitulosATexto(r.body);
+  if (texto.length < 60) return null; // subtitulos vacios o inservibles
+
+  return { texto, origen: `subtitulos:${elegido.language || '?'}`, segundos: a.duracion || null };
+}
+
+/**
+ * El caption da los ingredientes; el procedimiento se dice en voz alta.
+ * Aqui pedimos el video a Apify, lo transcribimos y volvemos a estructurar.
+ */
+async function conAudio(fila, contenido, recetaPrevia) {
+  const salida = { fila, receta: recetaPrevia, contenido };
+
+  if (!ENV.apifyToken || !ENV.groqKey) return salida;
+  if (!apifySoporta(fila.source)) {
+    fila.nota_audio = `sin actor de Apify para ${fila.source}`;
+    return salida;
+  }
+  if (apifyUsados >= ENV.apifyMax) {
+    fila.nota_audio = 'tope de llamadas a Apify alcanzado';
+    return salida;
+  }
+
+  const t = Date.now();
+  try {
+    apifyUsados++;
+    process.stdout.write(`   ${C.dim}buscando el video...${C.reset}\r`);
+    const a = await fetchViaApify(fila.url, fila.source, ENV.apifyToken);
+    fila.apify_actor = a.actor;
+    fila.apify_llamadas = 1;
+
+    // Apify suele traer el caption completo, sin el truncado de las meta tags.
+    if (a.texto && a.texto.length > contenido.texto.length) {
+      contenido.texto = a.texto;
+      fila.via += ' + apify';
+    }
+    // Camino barato: TikTok publica sus propios subtitulos automaticos.
+    // Es una transcripcion ya hecha: ni descarga de video, ni Whisper, ni coste.
+    const tr = (await desdeSubtitulos(a)) || (a.video
+      ? await transcribeUrl(a.video, { apiKey: ENV.groqKey, model: ENV.groqModel })
+      : null);
+
+    if (!tr || !tr.texto) {
+      fila.nota_audio = a.video ? 'la transcripcion salio vacia' : 'Apify no devolvio video ni subtitulos';
+      fila.ms += Date.now() - t;
+      console.log(`   ${C.yellow}sin audio aprovechable${C.reset}`);
+      return salida;
+    }
+
+    fila.origen_audio = tr.origen;
+    fila.transcripcion_chars = tr.texto.length;
+    if (tr.bytes) fila.video_mb = Number((tr.bytes / 1048576).toFixed(2));
+    fila.audio_seg = tr.segundos ?? a.duracion ?? null;
+
+    const textoCompleto = [
+      contenido.texto,
+      '[Transcripcion del audio del video]',
+      tr.texto,
+    ].filter(Boolean).join('\n\n');
+    contenido.texto = textoCompleto;
+    contenido.transcripcion = tr.texto;
+
+    const { receta, usage } = await structureRecipe({
+      apiKey: ENV.geminiKey, model: ENV.geminiModel,
+      texto: textoCompleto,
+      contexto: { titulo: contenido.titulo, autor: a.autor || contenido.autor },
+    });
+
+    const antesPasos = fila.pasos;
+    fila.tokens_in += usage.in;
+    fila.tokens_out += usage.out;
+    fila.coste_usd += estimateCost(usage, ENV.priceIn, ENV.priceOut);
+    fila.ruta = 'audio+ia';
+    fila.titulo = receta.titulo || fila.titulo;
+    fila.ingredientes = receta.ingredientes?.length || 0;
+    fila.pasos = receta.pasos?.length || 0;
+    fila.confianza = receta.confianza || fila.confianza;
+    fila.motivo = receta.motivo || '';
+    fila.necesita_audio = false;
+    fila.ms += Date.now() - t;
+
+    const col = fila.confianza === 'alta' ? C.green : fila.confianza === 'media' ? C.yellow : C.red;
+    console.log(`   ${C.cyan}+AUDIO${C.reset} ${col}${fila.confianza.toUpperCase()}${C.reset} "${truncate(fila.titulo, 45)}" · ${fila.ingredientes} ing · ${C.bold}${antesPasos} -> ${fila.pasos} pasos${C.reset} · ${fila.transcripcion_chars} chars via ${fila.origen_audio||"whisper"} · $${fila.coste_usd.toFixed(5)}`);
+    return { fila, receta, contenido };
+  } catch (err) {
+    fila.nota_audio = String(err?.message || err);
+    fila.ms += Date.now() - t;
+    console.log(`   ${C.red}audio fallo${C.reset} ${truncate(fila.nota_audio, 90)}`);
+    return salida;
+  }
+}
+
 // --- salidas -----------------------------------------------------------
 
 function toCsv(filas) {
   const cols = ['n', 'source', 'ruta', 'via', 'texto_chars', 'titulo', 'ingredientes', 'pasos',
-    'confianza', 'motivo', 'tokens_in', 'tokens_out', 'coste_usd', 'ms', 'necesita_audio', 'error', 'url'];
+    'confianza', 'motivo', 'origen_audio', 'transcripcion_chars', 'audio_seg', 'video_mb', 'apify_llamadas',
+    'nota_audio', 'tokens_in', 'tokens_out', 'coste_usd', 'ms', 'necesita_audio', 'error', 'url'];
   const esc = (v) => {
     const s = String(v ?? '').replace(/"/g, '""');
     return /[",\n;]/.test(s) ? `"${s}"` : s;
@@ -189,6 +309,11 @@ function toRevision(resultados) {
     out.push(`| Ruta | ${fila.ruta || '—'} |`);
     out.push(`| Obtenido via | ${fila.via} |`);
     out.push(`| Confianza IA | ${fila.confianza || '—'}${fila.motivo ? ` (${fila.motivo})` : ''} |`);
+    if (fila.transcripcion_chars) {
+      out.push(`| Audio transcrito | ${fila.transcripcion_chars} caracteres${fila.audio_seg ? ` · ${Math.round(fila.audio_seg)} s de video` : ''} |`);
+    } else if (fila.nota_audio) {
+      out.push(`| Audio | no se pudo: ${fila.nota_audio} |`);
+    }
     out.push(`| Coste | $${(fila.coste_usd || 0).toFixed(5)} |`);
     out.push(`| Tiempo | ${(fila.ms / 1000).toFixed(1)} s |`);
     out.push(`| Enlace | ${fila.url} |`);
@@ -240,6 +365,23 @@ function resumen(filas) {
   console.log(`  Resueltos por JSON-LD  ${filas.filter((f) => f.ruta === 'json-ld').length}  ${C.dim}(gratis, sin IA)${C.reset}`);
   console.log(`  Errores                ${filas.filter((f) => f.error).length}`);
 
+  const conAudioOk = filas.filter((f) => f.transcripcion_chars > 0);
+  if (apifyUsados) {
+    // Apify cobra por resultado: ~0,0027 USD Instagram y ~0,0037 TikTok en plan gratuito
+    const costeApify = filas.reduce((a, f) => a + (f.apify_llamadas || 0) * (f.source === 'tiktok' ? 0.0037 : 0.0027), 0);
+    const fallos = filas.filter((f) => f.nota_audio).length;
+    console.log(`\n  ${C.bold}Segunda pasada con audio${C.reset}`);
+    console.log(`    Llamadas a Apify       ${apifyUsados}   ${C.dim}(~$${costeApify.toFixed(4)} del credito mensual de $5)${C.reset}`);
+    console.log(`    Transcripciones OK     ${conAudioOk.length}`);
+    console.log(`    Fallos                 ${fallos}`);
+    if (conAudioOk.length) {
+      const conPasos = conAudioOk.filter((f) => f.pasos >= 2).length;
+      const media = conAudioOk.reduce((a, f) => a + f.transcripcion_chars, 0) / conAudioOk.length;
+      console.log(`    Con pasos tras audio   ${C.green}${conPasos}/${conAudioOk.length}${C.reset}`);
+      console.log(`    Transcripcion media    ${Math.round(media)} caracteres`);
+    }
+  }
+
   console.log(`\n  ${C.bold}Por fuente${C.reset}`);
   for (const [src, v] of Object.entries(porFuente)) {
     const p = (v.ok / v.total) * 100;
@@ -276,11 +418,24 @@ async function main() {
     process.exit(1);
   }
 
-  const file = args.find((a) => !a.startsWith('--')) || 'urls.txt';
-  const entradas = await loadUrls(file);
+  // --limit N (o --limit=N) procesa solo los primeros N. Para probar sin gastar credito de mas.
+  let limite = 0;
+  const consumidos = new Set();
+  const i = args.findIndex((a) => a === '--limit' || a.startsWith('--limit='));
+  if (i >= 0) {
+    consumidos.add(i);
+    if (args[i].includes('=')) limite = Number(args[i].split('=')[1]);
+    else { limite = Number(args[i + 1]); consumidos.add(i + 1); }
+  }
+
+  const file = args.find((a, k) => !a.startsWith('--') && !consumidos.has(k)) || 'urls.txt';
+  let entradas = await loadUrls(file);
+  if (Number.isFinite(limite) && limite > 0) entradas = entradas.slice(0, limite);
 
   console.log(`\n${C.bold}Fase 0 — spike de extraccion${C.reset}`);
-  console.log(`${C.dim}${entradas.length} enlaces · modelo ${ENV.geminiModel} · audio ${ENV.groqKey ? 'activado' : 'desactivado'}${C.reset}\n`);
+  const audioOn = Boolean(ENV.apifyToken && ENV.groqKey);
+  console.log(`${C.dim}${entradas.length} enlaces · modelo ${ENV.geminiModel}${C.reset}`);
+  console.log(`${C.dim}segunda pasada con audio: ${audioOn ? `${C.green}ACTIVADA${C.reset}${C.dim} (Apify + Groq)` : 'desactivada — falta APIFY_TOKEN o GROQ_API_KEY'}${C.reset}\n`);
 
   const resultados = [];
   for (let i = 0; i < entradas.length; i++) {
