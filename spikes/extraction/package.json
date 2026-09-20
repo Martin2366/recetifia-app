@@ -1,0 +1,11 @@
+{
+  "name": "recetifia-spike-extraction",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fase 0: mide si se puede extraer una receta utilizable desde enlaces de RRSS. Desechable.",
+  "scripts": {
+    "start": "node run.js",
+    "models": "node run.js --list-models"
+  }
+}

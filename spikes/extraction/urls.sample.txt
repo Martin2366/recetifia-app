@@ -1,0 +1,21 @@
+# Fase 0 - enlaces a probar.
+# Copia este archivo como urls.txt y pon TUS enlaces reales, uno por linea.
+# Lo que no se mide con contenido real no sirve de nada.
+#
+# Formato:
+#   https://...                         (normal)
+#   https://...  |  media/video1.mp4    (con archivo local para transcribir el audio)
+#
+# Objetivo de mezcla, para que el resultado sea representativo:
+#   8 reels de Instagram
+#   8 TikToks
+#   4 YouTube Shorts o videos
+#   4 pines de Pinterest
+#   4 enlaces de blog de cocina (deberian resolverse gratis por JSON-LD)
+#
+# Todos de cuentas en espanol, y elegidos por ti como "esto es lo que yo guardaria".
+
+https://www.instagram.com/reel/XXXXXXXXXXX/
+https://www.tiktok.com/@usuario/video/0000000000000000000
+https://www.youtube.com/watch?v=XXXXXXXXXXX
+https://www.pinterest.com/pin/000000000000000000/

@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+
+# Secretos - NUNCA deben subirse (este repo es publico)
+.env
+.env.local
+.env.*.local
+*.keystore
+*.jks
+google-services.json
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+*.orig.*
+expo-env.d.ts
+
+# Codigo nativo generado por prebuild (lo regenera EAS)
+/android/
+/ios/
+
+# Logs y temporales
+*.log
+npm-debug.*
+yarn-error.*
+.DS_Store
+Thumbs.db
+
+# Ajustes locales de Claude Code (personales, no del proyecto)
+.claude/settings.local.json
