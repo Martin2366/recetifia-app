@@ -22,16 +22,30 @@ su contenido, pégalo y pulsa **Run**.
 Debe terminar sin errores. Crea las tablas, activa RLS en todas y deja sembrados
 los pasillos de supermercado y los sinónimos LATAM.
 
-**1.3** Ve a **Project Settings** → **Data API** y copia dos valores:
+**1.3** Ve a **Project Settings** → **API Keys**. Supabase tiene ahora cuatro
+claves y solo una de ellas se usa en la app:
 
-| Campo | Lo usaremos como |
-|---|---|
-| Project URL | `EXPO_PUBLIC_SUPABASE_URL` |
-| `anon` `public` key | `EXPO_PUBLIC_SUPABASE_ANON_KEY` |
+| Lo que ves | ¿Se usa? | ¿Dónde? |
+|---|---|---|
+| `sb_publishable_...` | **Sí** | `EXPO_PUBLIC_SUPABASE_ANON_KEY` |
+| `sb_secret_...` | No todavía | Solo en el servidor, en la Fase 3. **Jamás en la app** |
+| Pestaña *Legacy* → `anon public` | No | Versión antigua de la publishable |
+| Pestaña *Legacy* → `service_role` | No | Versión antigua de la secret |
 
-> La clave `anon` es pública por diseño y puede viajar en la app. Lo que protege
-> los datos es RLS, no el secreto de esa clave. La que **nunca** debe salir del
-> servidor es la `service_role`.
+**La URL** está en **Project Settings** → **General** → *Project URL*, y tiene
+esta forma:
+
+```
+https://xxxxxxxxxxxx.supabase.co
+```
+
+> Cuidado: la página de **Data API** muestra `https://xxxx.supabase.co/rest/v1/`.
+> Ese sufijo **rompe la conexión**. La app necesita la URL a secas.
+
+> La clave publishable es pública por diseño y puede viajar dentro de la app.
+> Lo que protege los datos es RLS, no el secreto de esa clave. La `secret` sí es
+> peligrosa: se salta RLS por completo. Si alguna vez se te escapa, revócala
+> desde esta misma pantalla.
 
 ---
 
@@ -44,11 +58,12 @@ npx eas-cli@latest login
 ```
 
 ```bash
-npx eas-cli@latest init --id
+npx eas-cli@latest init
 ```
 
-Si te pregunta, elige el proyecto **`recetifia-app`** que ya tienes creado en
-expo.dev. Esto escribe el `projectId` dentro de `app.json`.
+Te dirá que encontró un proyecto llamado **`recetifia-app`** y preguntará si
+quieres enlazarlo. Responde que **sí**. Eso escribe el `projectId` dentro de
+`app.json`.
 
 **2.2** Lanza el build:
 
