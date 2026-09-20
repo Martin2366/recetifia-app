@@ -47,8 +47,11 @@ function Guardian({ children }: { children: ReactNode }) {
       // Ya estaba oculta. No es un problema.
     });
 
-    const enLogin = segmentos[0] === 'login';
-    const enReparto = segmentos.length === 0; // la pantalla index
+    // Las rutas tipadas no modelan la raiz, donde el array viene vacio,
+    // asi que ensanchamos el tipo para poder comprobarlo.
+    const primero = segmentos[0] as string | undefined;
+    const enLogin = primero === 'login';
+    const enReparto = primero === undefined; // la pantalla index
 
     // El guardian solo expulsa de donde NO se debe estar. Comprobar "no esta en
     // una pestana" en su lugar rebotaba al usuario desde cualquier pantalla
