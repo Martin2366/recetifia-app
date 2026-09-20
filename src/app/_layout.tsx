@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
+import {
+  DarkTheme,
+  DefaultTheme,
+  Stack,
+  ThemeProvider,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
@@ -26,15 +34,27 @@ function Guardian({ children }: { children: ReactNode }) {
   const { session, cargando } = useAuth();
   const segmentos = useSegments();
   const router = useRouter();
+  // Sin esto se navega antes de que el navegador exista y React avisa de una
+  // actualizacion de estado sobre un componente sin montar. En frio puede
+  // dejar la pantalla en blanco.
+  const navegador = useRootNavigationState();
 
   useEffect(() => {
+    if (!navegador?.key) return;
     if (cargando) return;
-    SplashScreen.hideAsync();
 
-    const dentroDeLaApp = segmentos[0] === '(tabs)';
-    if (!session && dentroDeLaApp) router.replace('/login');
-    else if (session && !dentroDeLaApp) router.replace('/(tabs)');
-  }, [session, cargando, segmentos, router]);
+    SplashScreen.hideAsync().catch(() => {
+      // Ya estaba oculta. No es un problema.
+    });
+
+    const enTabs = segmentos[0] === '(tabs)';
+    const enLogin = segmentos[0] === 'login';
+
+    // Los dos casos han de estar cubiertos: quedarse fuera de ambos deja al
+    // usuario atrapado en la pantalla de reparto, sin nada que mirar.
+    if (!session && !enLogin) router.replace('/login');
+    else if (session && !enTabs) router.replace('/(tabs)');
+  }, [session, cargando, segmentos, router, navegador?.key]);
 
   if (cargando) {
     return (
@@ -60,6 +80,11 @@ export default function RootLayout() {
               <Stack.Screen name="index" />
               <Stack.Screen name="login" />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="receta/[id]" options={{ headerShown: true, title: '' }} />
+              <Stack.Screen
+                name="receta/nueva"
+                options={{ headerShown: true, title: 'Nueva receta', presentation: 'modal' }}
+              />
             </Stack>
           </Guardian>
         </ThemeProvider>
