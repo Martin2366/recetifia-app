@@ -17,7 +17,7 @@ export async function transcribeUrl(url, { apiKey, model = 'whisper-large-v3-tur
   }
   if (buf.byteLength < 10000) throw new Error('el video descargado esta vacio o es demasiado pequeno');
 
-  return { ...(await enviarAGroq(buf, 'video.mp4', apiKey, model)), bytes: buf.byteLength };
+  return { ...(await enviarAGroq(buf, 'video.mp4', apiKey, model)), bytes: buf.byteLength, origen: 'whisper' };
 }
 
 async function enviarAGroq(bytes, nombre, apiKey, model) {
