@@ -1,17 +1,25 @@
 // Utilidades compartidas del spike.
 
-const UA =
+/**
+ * Nos identificamos como lo que somos. Comprobado: Instagram sirve las meta tags
+ * a cualquier cliente que no parezca un navegador completo, asi que no hay ninguna
+ * necesidad de suplantar al crawler de Facebook.
+ */
+export const BOT_UA = 'RecetifiaBot/0.1 (+https://recetifia.app; link preview)';
+
+/** Algunos sitios solo responden bien a un navegador. Segundo intento. */
+export const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
-export async function httpGet(url, { timeoutMs = 20000, headers = {} } = {}) {
+export async function httpGet(url, { timeoutMs = 20000, headers = {}, ua = BOT_UA } = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       redirect: 'follow',
       signal: ctrl.signal,
-      headers: { 'user-agent': UA, 'accept-language': 'es-ES,es;q=0.9,en;q=0.8', ...headers },
+      headers: { 'user-agent': ua, 'accept-language': 'es-ES,es;q=0.9,en;q=0.8', ...headers },
     });
     const body = await res.text();
     return { ok: res.ok, status: res.status, finalUrl: res.url || url, body };
@@ -52,7 +60,10 @@ export function detectSource(url) {
 export function canonicalizeUrl(url) {
   try {
     const u = new URL(url);
-    const drop = [/^utm_/i, /^fbclid$/i, /^igshid$/i, /^igsh$/i, /^si$/i, /^_r$/i, /^is_from_webapp$/i, /^sender_device$/i, /^web_id$/i];
+    const drop = [
+      /^utm_/i, /^fbclid$/i, /^igshid$/i, /^igsh$/i, /^stkn$/i, /^si$/i, /^_r$/i,
+      /^is_from_webapp$/i, /^sender_device$/i, /^web_id$/i, /^invite_code$/i, /^sender$/i, /^sfo$/i,
+    ];
     for (const key of [...u.searchParams.keys()]) {
       if (drop.some((re) => re.test(key))) u.searchParams.delete(key);
     }

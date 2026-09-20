@@ -3,13 +3,28 @@
 
 import {
   httpGet, httpGetJson, extractMetaTags, extractRecipeJsonLd, recipeFromJsonLd,
-  extractUrlsFromText, extractReadableText, decodeHtml, detectSource,
+  extractUrlsFromText, extractReadableText, decodeHtml, detectSource, BROWSER_UA,
 } from './util.js';
 
 const GRAPH_VERSIONS = (process.env.GRAPH_API_VERSION || 'v23.0,v20.0,v16.0').split(',');
 
 function empty() {
-  return { titulo: '', autor: '', miniatura: null, texto: '', via: [], notas: [], blogUrl: null, jsonLdRecipe: null };
+  return {
+    titulo: '', autor: '', miniatura: null, texto: '',
+    via: [], notas: [], candidatos: [], blogUrl: null, jsonLdRecipe: null,
+  };
+}
+
+/** Saca del HTML de un pin los enlaces externos que Pinterest guarda como origen. */
+function enlacesDeOrigen(html = '') {
+  const out = new Set();
+  const re = /"link":"(https?:[^"]{10,300})"/g;
+  let m;
+  while ((m = re.exec(html)) && out.size < 5) {
+    const u = m[1].replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
+    if (!/pinterest|pinimg/i.test(u)) out.add(u);
+  }
+  return [...out];
 }
 
 function addMeta(acc, meta) {
@@ -37,14 +52,38 @@ async function oembed(endpoint, acc, label) {
   return Boolean(j.title || j.author_name);
 }
 
+/** ¿La respuesta trae algo aprovechable, o es la carcasa de JavaScript? */
+function tieneAlgo(body) {
+  if (!body) return false;
+  const m = extractMetaTags(body);
+  return Boolean(m['og:description'] || m['og:title'] || m['description']) || /application\/ld\+json/i.test(body);
+}
+
 async function scrapeOg(url, acc, label) {
-  const r = await httpGet(url);
+  let r = await httpGet(url);
+
+  // Instagram y compania devuelven una pagina vacia al UA de navegador pero las
+  // meta tags completas a un bot. Otros sitios hacen justo lo contrario.
+  if (r.ok && !tieneAlgo(r.body)) {
+    const alt = await httpGet(url, { ua: BROWSER_UA });
+    if (alt.ok && tieneAlgo(alt.body)) {
+      r = alt;
+      acc.notas.push(`${label}: hizo falta UA de navegador`);
+    }
+  }
+
   if (!r.ok || !r.body) {
     acc.notas.push(`${label}: fallo (${r.status || r.error})`);
     return false;
   }
   const before = acc.texto.length;
   addMeta(acc, extractMetaTags(r.body));
+
+  // Pinterest esconde el enlace al blog de origen en el cuerpo de la pagina:
+  // ahi es donde suele estar la receta de verdad, no en el pin.
+  if (label.includes('pinterest')) {
+    for (const enlace of enlacesDeOrigen(r.body)) acc.candidatos.push(enlace);
+  }
 
   const recipe = extractRecipeJsonLd(r.body);
   if (recipe) {
@@ -62,6 +101,7 @@ async function scrapeOg(url, acc, label) {
     }
   }
 
+  if (acc.texto.length > before && !acc.via.includes(label)) acc.via.push(label);
   if (acc.jsonLdRecipe || acc.texto.length > before) return true;
 
   acc.notas.push(`${label}: sin metadatos utiles`);
@@ -82,13 +122,11 @@ async function fromTiktok(url, acc) {
 }
 
 async function fromInstagram(url, acc) {
-  // Desde junio de 2026 el oEmbed de Meta vuelve a funcionar sin token.
-  // Probamos varias versiones de Graph porque el numero cambia cada pocos meses.
-  for (const v of GRAPH_VERSIONS) {
-    const ep = `https://graph.facebook.com/${v.trim()}/instagram_oembed?omitscript=true&url=${encodeURIComponent(url)}`;
-    if (await oembed(ep, acc, `oembed:ig(${v.trim()})`)) break;
-  }
-  if (acc.texto.length < 80) await scrapeOg(url, acc, 'og:instagram');
+  // El oEmbed sin token de Meta responde 200 pero solo devuelve el iframe de
+  // incrustacion: ni caption, ni autor, ni miniatura. Comprobado, no sirve de nada.
+  // El caption si esta en las meta tags de la propia pagina, que Instagram entrega
+  // a cualquier cliente que no se presente como un navegador completo.
+  await scrapeOg(url, acc, 'og:instagram');
 }
 
 async function fromFacebook(url, acc) {
@@ -141,7 +179,10 @@ export async function fetchContent(url, source) {
 
   // Paso clave: si el texto enlaza a un blog, ahi puede estar la receta exacta y gratis.
   if (!acc.jsonLdRecipe) {
-    const candidatos = extractUrlsFromText(acc.texto).filter((u) => detectSource(u) === 'web').slice(0, 2);
+    // Primero los enlaces de origen que la plataforma declara (Pinterest),
+    // despues los que aparezcan escritos en el caption.
+    const delTexto = extractUrlsFromText(acc.texto).filter((u) => detectSource(u) === 'web');
+    const candidatos = [...new Set([...acc.candidatos, ...delTexto])].slice(0, 3);
     for (const blog of candidatos) {
       const sub = empty();
       const ok = await scrapeOg(blog, sub, 'blog');
