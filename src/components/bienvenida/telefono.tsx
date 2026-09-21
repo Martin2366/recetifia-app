@@ -9,9 +9,8 @@ import { Marca, Tipografia } from '@/constants/theme';
 /**
  * Maquetas de "pantalla de celular" para la bienvenida.
  *
- * Son vistas dibujadas, no capturas: no reproducimos contenido ni interfaz de
- * terceros, y pesan cero kilobytes. Los platos son ilustraciones con iconos
- * mientras no haya fotos propias; cuando las haya, basta con pasar `foto`.
+ * Cada red muestra su captura de FOTOS. Las maquetas dibujadas de abajo solo se
+ * usan si falta la captura de alguna red.
  */
 
 export type Fuente = 'instagram' | 'tiktok' | 'youtube' | 'google' | 'galeria' | 'facebook';
@@ -63,7 +62,7 @@ export const FUENTES: {
 ];
 
 /**
- * Capturas reales de cada red. Las que faltan se dibujan.
+ * Capturas reales de cada red. Si falta alguna, se dibuja una maqueta.
  *
  * OJO antes de publicar: son capturas de contenido de terceros (creadores,
  * nombres de cuenta, marcas). Sirven para desarrollo, pero para Google Play hay
@@ -71,6 +70,8 @@ export const FUENTES: {
  */
 export const FOTOS: Partial<Record<Fuente, number>> = {
   instagram: require('@/assets/images/bienvenida/instagram.jpg'),
+  tiktok: require('@/assets/images/bienvenida/tiktok.jpg'),
+  galeria: require('@/assets/images/bienvenida/galeria.jpg'),
   youtube: require('@/assets/images/bienvenida/youtube.jpg'),
   google: require('@/assets/images/bienvenida/web.jpg'),
   facebook: require('@/assets/images/bienvenida/facebook.jpg'),

@@ -13,7 +13,7 @@ import { FOTOS } from './telefono';
  * captura real de la app, igual que hace la referencia.
  */
 
-const FOTO = [FOTOS.instagram, FOTOS.facebook, FOTOS.google, FOTOS.youtube].filter(Boolean) as number[];
+const FOTO = [FOTOS.instagram, FOTOS.tiktok, FOTOS.facebook, FOTOS.youtube, FOTOS.google].filter(Boolean) as number[];
 const foto = (i: number) => FOTO[i % FOTO.length];
 
 const COLECCIONES = [
