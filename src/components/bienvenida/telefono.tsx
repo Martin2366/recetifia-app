@@ -1,6 +1,7 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Marca, Tipografia } from '@/constants/theme';
@@ -61,6 +62,20 @@ export const FUENTES: {
   },
 ];
 
+/**
+ * Capturas reales de cada red. Las que faltan se dibujan.
+ *
+ * OJO antes de publicar: son capturas de contenido de terceros (creadores,
+ * nombres de cuenta, marcas). Sirven para desarrollo, pero para Google Play hay
+ * que sustituirlas por contenido propio o con permiso de sus autores.
+ */
+export const FOTOS: Partial<Record<Fuente, number>> = {
+  instagram: require('@/assets/images/bienvenida/instagram.jpg'),
+  youtube: require('@/assets/images/bienvenida/youtube.jpg'),
+  google: require('@/assets/images/bienvenida/web.jpg'),
+  facebook: require('@/assets/images/bienvenida/facebook.jpg'),
+};
+
 function IconoFuente({ fuente, tamano }: { fuente: Fuente; tamano: number }) {
   const f = FUENTES.find((x) => x.id === fuente)!;
   if (fuente === 'galeria') {
@@ -110,6 +125,13 @@ function BarraComentario({ ancho }: { ancho: number }) {
 
 function Contenido({ fuente, ancho, alto }: { fuente: Fuente; ancho: number; alto: number }) {
   const f = FUENTES.find((x) => x.id === fuente)!;
+
+  const foto = FOTOS[fuente];
+  if (foto) {
+    // Alineada arriba: la parte de la captura que importa es la de arriba y el
+    // centro; lo que se recorta es la barra inferior del sistema.
+    return <Image source={foto} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition="top" />;
+  }
 
   if (fuente === 'google') {
     return (
