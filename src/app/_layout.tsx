@@ -29,7 +29,8 @@ SplashScreen.preventAutoHideAsync();
 // v1 es solo modo claro. Forzarlo aqui hace que useColorScheme() devuelva
 // 'light' en toda la app sin recompilar; app.json lo fija a nivel nativo en el
 // siguiente build.
-Appearance.setColorScheme('light');
+// En web no existe; alli solo se usa para previsualizar.
+Appearance.setColorScheme?.('light');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,7 +56,7 @@ const temaNavegacion = {
 };
 
 /** Pantallas a las que se puede estar sin sesion. */
-const RUTAS_PUBLICAS = new Set(['bienvenida', 'login']);
+const RUTAS_PUBLICAS = new Set(['bienvenida', 'onboarding', 'login']);
 
 /** Decide si el usuario ve la app, la bienvenida o la entrada. */
 function Guardian({ children, listo }: { children: ReactNode; listo: boolean }) {
@@ -120,6 +121,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="bienvenida" options={{ animation: 'fade' }} />
+              <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
               <Stack.Screen name="login" options={{ animation: 'fade' }} />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="receta/[id]" options={{ headerShown: true, title: '' }} />

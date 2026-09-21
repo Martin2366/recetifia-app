@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -197,11 +197,11 @@ export default function Bienvenida() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sinMovimiento]);
 
-  // "Empezar" llevara al onboarding cuando exista; "Iniciar sesion" ira directo
-  // al login. Mientras no haya onboarding, los dos terminan en el login.
-  async function salir(_destino: 'empezar' | 'entrar') {
+  // "Empezar" abre el onboarding; "Iniciar sesion" va directo al login.
+  async function salir(destino: 'empezar' | 'entrar') {
     await marcarBienvenidaVista();
-    router.replace('/login');
+    // El generador de rutas tipadas anuncia '/onboarding/index', que en ejecucion no existe.
+    router.replace(destino === 'empezar' ? ('/onboarding' as Href) : '/login');
   }
 
   // --- geometria ----------------------------------------------------------
