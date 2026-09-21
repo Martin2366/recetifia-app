@@ -1,6 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
-  DarkTheme,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
+import {
   DefaultTheme,
   Stack,
   ThemeProvider,
@@ -10,13 +17,19 @@ import {
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, type ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Appearance, StyleSheet, View } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Marca } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { vioBienvenida } from '@/lib/preferencias';
 
 SplashScreen.preventAutoHideAsync();
+
+// v1 es solo modo claro. Forzarlo aqui hace que useColorScheme() devuelva
+// 'light' en toda la app sin recompilar; app.json lo fija a nivel nativo en el
+// siguiente build.
+Appearance.setColorScheme('light');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,61 +42,85 @@ const queryClient = new QueryClient({
   },
 });
 
-/** Decide si el usuario ve la app o la pantalla de entrada. */
-function Guardian({ children }: { children: ReactNode }) {
+const temaNavegacion = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Marca.primario,
+    background: Colors.light.background,
+    card: Colors.light.background,
+    text: Colors.light.text,
+    border: Colors.light.borde,
+  },
+};
+
+/** Pantallas a las que se puede estar sin sesion. */
+const RUTAS_PUBLICAS = new Set(['bienvenida', 'login']);
+
+/** Decide si el usuario ve la app, la bienvenida o la entrada. */
+function Guardian({ children, listo }: { children: ReactNode; listo: boolean }) {
   const { session, cargando } = useAuth();
   const segmentos = useSegments();
   const router = useRouter();
   // Sin esto se navega antes de que el navegador exista y React avisa de una
-  // actualizacion de estado sobre un componente sin montar. En frio puede
-  // dejar la pantalla en blanco.
+  // actualizacion de estado sobre un componente sin montar.
   const navegador = useRootNavigationState();
+  const [bienvenidaVista, setBienvenidaVista] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!navegador?.key) return;
-    if (cargando) return;
+    vioBienvenida().then(setBienvenidaVista);
+  }, []);
+
+  useEffect(() => {
+    if (!navegador?.key || cargando || !listo || bienvenidaVista === null) return;
 
     SplashScreen.hideAsync().catch(() => {
       // Ya estaba oculta. No es un problema.
     });
 
-    // Las rutas tipadas no modelan la raiz, donde el array viene vacio,
-    // asi que ensanchamos el tipo para poder comprobarlo.
+    // Las rutas tipadas no modelan la raiz, donde el array viene vacio.
     const primero = segmentos[0] as string | undefined;
-    const enLogin = primero === 'login';
-    const enReparto = primero === undefined; // la pantalla index
+    const enPublica = primero !== undefined && RUTAS_PUBLICAS.has(primero);
+    const enReparto = primero === undefined;
 
     // El guardian solo expulsa de donde NO se debe estar. Comprobar "no esta en
-    // una pestana" en su lugar rebotaba al usuario desde cualquier pantalla
-    // legitima fuera de las pestanas, como /receta/nueva: se abria y volvia
-    // sola a la biblioteca.
-    if (!session && !enLogin) router.replace('/login');
-    else if (session && (enLogin || enReparto)) router.replace('/(tabs)');
-  }, [session, cargando, segmentos, router, navegador?.key]);
+    // una pestana" rebotaba al usuario desde pantallas legitimas como
+    // /receta/nueva.
+    if (!session && !enPublica) {
+      router.replace(bienvenidaVista ? '/login' : '/bienvenida');
+    } else if (session && (enPublica || enReparto)) {
+      router.replace('/(tabs)');
+    }
+  }, [session, cargando, listo, bienvenidaVista, segmentos, router, navegador?.key]);
 
-  if (cargando) {
-    return (
-      <View style={estilos.cargando}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  // Mientras tanto se ve el splash nativo; no hace falta pintar nada encima.
+  if (cargando || !listo) return <View style={estilos.fondo} />;
   return <>{children}</>;
 }
 
 export default function RootLayout() {
-  const esquema = useColorScheme();
-  const oscuro = esquema === 'dark';
+  const [fuentesListas, errorFuentes] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    PlayfairDisplay_700Bold,
+  });
+
+  // Si las fuentes fallan, seguimos con la del sistema antes que dejar la app
+  // bloqueada en el splash.
+  const listo = fuentesListas || Boolean(errorFuentes);
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ThemeProvider value={oscuro ? DarkTheme : DefaultTheme}>
-          <StatusBar style={oscuro ? 'light' : 'dark'} />
-          <Guardian>
+        <ThemeProvider value={temaNavegacion}>
+          <StatusBar style="dark" />
+          <Guardian listo={listo}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
-              <Stack.Screen name="login" />
+              <Stack.Screen name="bienvenida" options={{ animation: 'fade' }} />
+              <Stack.Screen name="login" options={{ animation: 'fade' }} />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="receta/[id]" options={{ headerShown: true, title: '' }} />
               <Stack.Screen
@@ -99,10 +136,5 @@ export default function RootLayout() {
 }
 
 const estilos = StyleSheet.create({
-  cargando: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.light.background,
-  },
+  fondo: { flex: 1, backgroundColor: Colors.light.background },
 });
