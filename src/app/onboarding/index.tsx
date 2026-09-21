@@ -128,8 +128,7 @@ export default function Onboarding() {
   );
 
   function comenzar() {
-    // TODO(onboarding): pasar a la segunda pantalla cuando exista.
-    router.push('/login');
+    router.push('/onboarding/objetivos');
   }
 
   return (

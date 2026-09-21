@@ -18,6 +18,9 @@
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
+      ],
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
