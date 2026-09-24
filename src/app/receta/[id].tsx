@@ -19,6 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Marca, Spacing } from '@/constants/theme';
 import { useCuota } from '@/lib/cuota';
 import { textoIngredienteEscalado } from '@/lib/porciones';
+import { itemDesdeIngrediente, useAgregarALista } from '@/lib/lista';
 import { useBorrarReceta, useReceta } from '@/lib/recetas';
 
 export default function DetalleReceta() {
@@ -29,6 +30,7 @@ export default function DetalleReceta() {
   const { data: receta, isLoading, error, refetch, isRefetching } = useReceta(id);
   const cuota = useCuota();
   const borrar = useBorrarReceta();
+  const agregarALista = useAgregarALista();
 
   const [porciones, setPorciones] = useState<number | null>(null);
   const [hechos, setHechos] = useState<Set<string>>(new Set());
@@ -69,6 +71,23 @@ export default function DetalleReceta() {
   const porcionesActuales = porciones ?? porcionesBase ?? null;
   const escalada = porcionesBase != null && porcionesActuales != null && porcionesActuales !== porcionesBase;
   const tiempo = (receta.prep_minutes ?? 0) + (receta.cook_minutes ?? 0);
+
+  // Con las porciones que se estan viendo: si se duplico la receta, se compra el doble
+  async function agregarIngredientesALista() {
+    const r = receta!;
+    try {
+      const { nuevos, sumados } = await agregarALista.mutateAsync(
+        r.ingredientes.map((ing) => itemDesdeIngrediente(ing, r.id, porcionesBase ?? null, porcionesActuales))
+      );
+      const partes = [nuevos ? `${nuevos} nuevos` : '', sumados ? `${sumados} sumados a los que ya tenías` : ''].filter(Boolean);
+      Alert.alert('Listo, en tu lista', partes.length ? `Ingredientes: ${partes.join(', ')}.` : 'Ya estaban todos en tu lista.', [
+        { text: 'Seguir aquí', style: 'cancel' },
+        { text: 'Ver lista', onPress: () => router.push('/lista') },
+      ]);
+    } catch {
+      Alert.alert('No se agregaron', 'Revisa tu conexión e inténtalo de nuevo.');
+    }
+  }
 
   function alternarPaso(idPaso: string) {
     setHechos((previos) => {
@@ -189,6 +208,22 @@ export default function DetalleReceta() {
               </View>
             ))
           )}
+          {receta.ingredientes.length ? (
+            <Pressable
+              onPress={agregarIngredientesALista}
+              disabled={agregarALista.isPending}
+              accessibilityRole="button"
+              style={({ pressed }) => [estilos.agregarLista, (pressed || agregarALista.isPending) && { opacity: 0.7 }]}>
+              {agregarALista.isPending ? (
+                <ActivityIndicator color={Marca.primario} />
+              ) : (
+                <>
+                  <MaterialIcons name="add-shopping-cart" size={20} color={Marca.primario} />
+                  <ThemedText style={estilos.textoAgregarLista}>Agregar a la lista de compras</ThemedText>
+                </>
+              )}
+            </Pressable>
+          ) : null}
         </View>
 
         {receta.nutrition?.calorias ? <TarjetaNutricion nutricion={receta.nutrition} bloqueada={!cuota.data?.plus} /> : null}
@@ -236,6 +271,18 @@ export default function DetalleReceta() {
 
 const estilos = StyleSheet.create({
   acciones: { flexDirection: 'row', alignItems: 'center', gap: 22 },
+  agregarLista: {
+    marginTop: Spacing.two,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: Marca.primario,
+  },
+  textoAgregarLista: { color: Marca.primario, fontWeight: '600' },
   reintentar: { marginTop: Spacing.three, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 999, backgroundColor: Marca.primario },
   textoReintentar: { color: '#FFFFFF', fontWeight: '600' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
