@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { claveCuota } from './cuota';
+import { claveLocales, encolar, esErrorDeRed, nuevoId } from './guardado-local';
 import { supabase } from './supabase';
 import type { BorradorReceta, Ingrediente, Paso, Receta, RecetaCompleta } from './tipos';
 
@@ -49,28 +51,50 @@ export function useReceta(id: string | undefined) {
   });
 }
 
+/**
+ * Resultado de guardar. `enCola`: no hubo conexion, la receta quedo en el
+ * telefono y se sube sola cuando vuelva la red. Nunca se pierde.
+ */
+export type Guardado = { id: string; enCola: boolean };
+
 export function useCrearReceta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (borrador: BorradorReceta): Promise<string> => {
-      const { data, error } = await supabase.rpc('crear_receta', { receta: borrador });
-      if (error) throw error;
-      return data as string;
+    mutationFn: async (borrador: BorradorReceta & { id?: string }): Promise<Guardado> => {
+      // El id sale del telefono: si hay que reintentar, no se duplica
+      const conId = { ...borrador, id: borrador.id ?? nuevoId() };
+      const { data, error } = await supabase.rpc('crear_receta', { receta: conId });
+      if (error) {
+        if (!esErrorDeRed(error)) throw error;
+        await encolar(conId, 'nueva');
+        return { id: conId.id, enCola: true };
+      }
+      return { id: data as string, enCola: false };
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: clavesRecetas.todas }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: clavesRecetas.todas });
+      qc.invalidateQueries({ queryKey: claveCuota });
+      qc.invalidateQueries({ queryKey: claveLocales });
+    },
   });
 }
 
 export function useActualizarReceta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, borrador }: { id: string; borrador: BorradorReceta }) => {
+    mutationFn: async ({ id, borrador }: { id: string; borrador: BorradorReceta }): Promise<Guardado> => {
       const { error } = await supabase.rpc('actualizar_receta', { receta_id: id, receta: borrador });
-      if (error) throw error;
+      if (error) {
+        if (!esErrorDeRed(error)) throw error;
+        await encolar({ ...borrador, id }, 'editar');
+        return { id, enCola: true };
+      }
+      return { id, enCola: false };
     },
     onSuccess: (_d, { id }) => {
       qc.invalidateQueries({ queryKey: clavesRecetas.una(id) });
       qc.invalidateQueries({ queryKey: clavesRecetas.todas });
+      qc.invalidateQueries({ queryKey: claveLocales });
     },
   });
 }
@@ -82,7 +106,10 @@ export function useBorrarReceta() {
       const { error } = await supabase.from('recipes').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: clavesRecetas.todas }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: clavesRecetas.todas });
+      qc.invalidateQueries({ queryKey: claveCuota });
+    },
   });
 }
 

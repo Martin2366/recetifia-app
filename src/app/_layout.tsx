@@ -20,11 +20,15 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Appearance, StyleSheet, View } from 'react-native';
 
+import { ErrorAmable } from '@/components/error-amable';
 import { Colors, Marca } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { vioBienvenida } from '@/lib/preferencias';
 
 SplashScreen.preventAutoHideAsync();
+
+// Expo Router lo usa para cualquier pantalla que falle al dibujarse
+export const ErrorBoundary = ErrorAmable;
 
 // v1 es solo modo claro. Forzarlo aqui hace que useColorScheme() devuelva
 // 'light' en toda la app sin recompilar; app.json lo fija a nivel nativo en el
@@ -125,10 +129,12 @@ export default function RootLayout() {
               <Stack.Screen name="login" options={{ animation: 'fade' }} />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="receta/[id]" options={{ headerShown: true, title: '' }} />
-              <Stack.Screen
-                name="receta/nueva"
-                options={{ headerShown: true, title: 'Nueva receta', presentation: 'modal' }}
-              />
+              <Stack.Screen name="receta/nueva" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="importar/texto" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="importar/web" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="importar/procesando" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+              <Stack.Screen name="expo-sharing" options={{ animation: 'none' }} />
+              <Stack.Screen name="plus" options={{ animation: 'slide_from_bottom' }} />
             </Stack>
           </Guardian>
         </ThemeProvider>

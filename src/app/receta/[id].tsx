@@ -13,9 +13,11 @@ import {
   View,
 } from 'react-native';
 
+import { TarjetaNutricion } from '@/components/nutricion';
 import { PantallaVacia } from '@/components/pantalla-vacia';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Marca, Spacing } from '@/constants/theme';
+import { useCuota } from '@/lib/cuota';
 import { textoIngredienteEscalado } from '@/lib/porciones';
 import { useBorrarReceta, useReceta } from '@/lib/recetas';
 
@@ -24,7 +26,8 @@ export default function DetalleReceta() {
   const router = useRouter();
   const colores = Colors[useColorScheme() === 'dark' ? 'dark' : 'light'];
 
-  const { data: receta, isLoading, error } = useReceta(id);
+  const { data: receta, isLoading, error, refetch, isRefetching } = useReceta(id);
+  const cuota = useCuota();
   const borrar = useBorrarReceta();
 
   const [porciones, setPorciones] = useState<number | null>(null);
@@ -43,11 +46,22 @@ export default function DetalleReceta() {
   }
 
   if (error || !receta) {
+    // Sin conexion no es "no existe": se ofrece reintentar en vez de un callejon sin salida
+    const noExiste = (error as { code?: string } | null)?.code === 'PGRST116';
     return (
       <PantallaVacia
-        titulo="No encontramos esta receta"
-        texto={error instanceof Error ? error.message : 'Puede que la hayas borrado.'}
-      />
+        titulo={noExiste ? 'No encontramos esta receta' : 'No pudimos abrir la receta'}
+        texto={noExiste ? 'Puede que la hayas borrado.' : 'Revisa tu conexión e inténtalo de nuevo.'}>
+        {noExiste ? null : (
+          <Pressable
+            onPress={() => refetch()}
+            disabled={isRefetching}
+            accessibilityRole="button"
+            style={[estilos.reintentar, isRefetching && { opacity: 0.6 }]}>
+            <ThemedText style={estilos.textoReintentar}>{isRefetching ? 'Cargando…' : 'Reintentar'}</ThemedText>
+          </Pressable>
+        )}
+      </PantallaVacia>
     );
   }
 
@@ -89,9 +103,18 @@ export default function DetalleReceta() {
         options={{
           title: '',
           headerRight: () => (
-            <Pressable onPress={confirmarBorrado} hitSlop={12} accessibilityLabel="Borrar receta">
-              <MaterialIcons name="delete-outline" size={24} color={colores.text} />
-            </Pressable>
+            <View style={estilos.acciones}>
+              <Pressable
+                onPress={() => router.push({ pathname: '/receta/nueva', params: { id: receta.id } })}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Editar receta">
+                <MaterialIcons name="edit" size={23} color={colores.text} />
+              </Pressable>
+              <Pressable onPress={confirmarBorrado} hitSlop={12} accessibilityRole="button" accessibilityLabel="Borrar receta">
+                <MaterialIcons name="delete-outline" size={24} color={colores.text} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -159,7 +182,7 @@ export default function DetalleReceta() {
           ) : (
             receta.ingredientes.map((ing) => (
               <View key={ing.id} style={estilos.linea}>
-                <ThemedText style={estilos.punto}>•</ThemedText>
+                {ing.emoji ? <ThemedText>{ing.emoji}</ThemedText> : <ThemedText style={estilos.punto}>•</ThemedText>}
                 <ThemedText style={estilos.textoLinea}>
                   {textoIngredienteEscalado(ing, porcionesBase, porcionesActuales)}
                 </ThemedText>
@@ -167,6 +190,8 @@ export default function DetalleReceta() {
             ))
           )}
         </View>
+
+        {receta.nutrition?.calorias ? <TarjetaNutricion nutricion={receta.nutrition} bloqueada={!cuota.data?.plus} /> : null}
 
         {/* Pasos */}
         <View style={estilos.seccion}>
@@ -210,6 +235,9 @@ export default function DetalleReceta() {
 }
 
 const estilos = StyleSheet.create({
+  acciones: { flexDirection: 'row', alignItems: 'center', gap: 22 },
+  reintentar: { marginTop: Spacing.three, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 999, backgroundColor: Marca.primario },
+  textoReintentar: { color: '#FFFFFF', fontWeight: '600' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   contenido: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
   meta: { flexDirection: 'row', gap: Spacing.three },

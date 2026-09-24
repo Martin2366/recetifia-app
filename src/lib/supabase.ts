@@ -17,7 +17,23 @@ if (!url || !anonKey) {
   );
 }
 
+/**
+ * Ninguna consulta espera para siempre: con mala senal, una peticion colgada
+ * dejaba la pantalla cargando sin fin. A los 20 s se corta y la app ofrece
+ * reintentar (o guarda en el telefono, si era un guardado).
+ */
+const ESPERA_MAXIMA = 20_000;
+
+function fetchConTiempo(entrada: RequestInfo | URL, opciones?: RequestInit) {
+  const control = new AbortController();
+  const reloj = setTimeout(() => control.abort(), ESPERA_MAXIMA);
+  // Si quien llama ya trae su propia senal de cancelacion, tambien se respeta
+  opciones?.signal?.addEventListener?.('abort', () => control.abort());
+  return fetch(entrada, { ...opciones, signal: control.signal }).finally(() => clearTimeout(reloj));
+}
+
 export const supabase = createClient(url, anonKey, {
+  global: { fetch: fetchConTiempo },
   auth: {
     storage: almacenSeguro,
     autoRefreshToken: true,
