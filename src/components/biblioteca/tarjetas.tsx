@@ -39,11 +39,14 @@ export function TarjetaReceta({
   ancho,
   alPulsar,
   alFavorita,
+  alMantener,
 }: {
   receta: Receta;
   ancho: number;
   alPulsar: () => void;
   alFavorita: () => void;
+  /** Mantener presionada: acciones extra, como quitarla de una coleccion. */
+  alMantener?: () => void;
 }) {
   const tiempo = (receta.prep_minutes ?? 0) + (receta.cook_minutes ?? 0);
   const r = relleno(receta.id);
@@ -52,8 +55,12 @@ export function TarjetaReceta({
   return (
     <Pressable
       onPress={alPulsar}
+      onLongPress={alMantener}
+      delayLongPress={350}
       accessibilityRole="button"
       accessibilityLabel={`Abrir ${receta.title}`}
+      accessibilityActions={alMantener ? [{ name: 'longpress', label: 'Más opciones' }] : undefined}
+      onAccessibilityAction={alMantener ? () => alMantener() : undefined}
       style={({ pressed }) => [{ width: ancho, opacity: pressed ? 0.85 : 1 }]}>
       <View style={[estilos.foto, { width: ancho, height: ancho * 1.05 }]}>
         {receta.image_path ? (

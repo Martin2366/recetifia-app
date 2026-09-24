@@ -130,6 +130,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="receta/[id]" options={{ headerShown: true, title: '' }} />
               <Stack.Screen name="receta/nueva" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="coleccion/[id]" />
               <Stack.Screen name="importar/texto" options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="importar/web" options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="importar/procesando" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />

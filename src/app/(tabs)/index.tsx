@@ -155,7 +155,7 @@ export default function Biblioteca() {
               <TarjetaColeccion
                 coleccion={item}
                 ancho={anchoTarjeta}
-                alPulsar={() => Alert.alert(item.name, 'Muy pronto podrás abrir la colección y ordenar sus recetas.')}
+                alPulsar={() => router.push({ pathname: '/coleccion/[id]', params: { id: item.id } })}
               />
             )}
           />
