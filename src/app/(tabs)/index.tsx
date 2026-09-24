@@ -20,12 +20,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvisosLocales } from '@/components/biblioteca/avisos-locales';
 import { HojaAgregar, type DestinoHoja } from '@/components/biblioteca/hoja-agregar';
+import { PrimerosPasos } from '@/components/biblioteca/primeros-pasos';
+import { useGuia, useObjetivoGuia, type ObjetivoGuia } from '@/components/guia/guia';
 import { TarjetaColeccion, TarjetaReceta } from '@/components/biblioteca/tarjetas';
 import { Silueta, TONOS } from '@/components/onboarding/formas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { useColecciones } from '@/lib/colecciones';
 import { useCuota } from '@/lib/cuota';
+import { useLista } from '@/lib/lista';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
 
 /**
@@ -53,6 +56,19 @@ export default function Biblioteca() {
   const colecciones = useColecciones();
   const cuota = useCuota();
   const alternarFavorita = useAlternarFavorita();
+  const guia = useGuia();
+  const { anonima } = useAuth();
+  const listaCompras = useLista();
+
+  // La primera vez que se llega aqui, la guia muestra lo importante (una sola vez)
+  const listo = !recetas.isLoading && !cuota.isLoading;
+  useEffect(() => {
+    if (!listo) return;
+    const t = setTimeout(() => guia.iniciar(), 900);
+    return () => clearTimeout(t);
+    // Solo al quedar lista la pantalla; iniciar ya recuerda si se vio
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo]);
 
   const anchoTarjeta = (W - MARGEN * 2 - SEPARACION) / 2;
   const pieLista = insets.bottom + 170; // aire para la barra flotante y el boton +
@@ -83,10 +99,26 @@ export default function Biblioteca() {
       />
 
       <AvisosLocales />
+      <PrimerosPasos
+        tareas={[
+          { clave: 'importar', titulo: 'Guarda tu primera receta', hecha: !recetas.isLoading && !bibliotecaVacia, alPulsar: () => setHoja(true) },
+          {
+            clave: 'coleccion',
+            titulo: 'Crea una colección',
+            hecha: Boolean(colecciones.data?.length),
+            alPulsar: () => {
+              setPestana('colecciones');
+              setHoja(true);
+            },
+          },
+          { clave: 'lista', titulo: 'Agrega ingredientes a tu lista', hecha: Boolean(listaCompras.data?.length), alPulsar: () => router.push('/lista') },
+          { clave: 'respaldo', titulo: 'Respalda tus recetas con Google', hecha: !anonima, alPulsar: () => router.push('/perfil') },
+        ]}
+      />
 
       <View style={estilos.pestanas}>
         <PestanaCarpeta texto="Todas las recetas" activa={pestana === 'recetas'} alPulsar={() => setPestana('recetas')} />
-        <PestanaCarpeta texto="Colecciones" activa={pestana === 'colecciones'} alPulsar={() => setPestana('colecciones')} />
+        <PestanaCarpeta texto="Colecciones" activa={pestana === 'colecciones'} alPulsar={() => setPestana('colecciones')} guia="colecciones" />
       </View>
 
       <View style={[estilos.cuerpo, pestana === 'recetas' ? estilos.cuerpoIzquierda : estilos.cuerpoDerecha]}>
@@ -190,6 +222,7 @@ function Cabecera({
   alPulsarPerfil: () => void;
 }) {
   const { session } = useAuth();
+  const refCuota = useObjetivoGuia('cuota');
   const meta = session?.user.user_metadata ?? {};
   const foto = (meta.avatar_url ?? meta.picture) as string | undefined;
   const nombre = (meta.full_name ?? meta.name ?? session?.user.email ?? '') as string;
@@ -206,6 +239,8 @@ function Cabecera({
       <View style={estilos.acciones}>
         {plus || restantes !== undefined ? (
           <Pressable
+            ref={refCuota}
+            collapsable={false}
             onPress={alPulsarCuota}
             accessibilityRole="button"
             accessibilityLabel={plus ? 'Tienes Recetifia Plus' : `Te quedan ${restantes} importaciones de videos e imágenes esta semana`}
@@ -230,9 +265,22 @@ function Cabecera({
 }
 
 /** Pestana con forma de carpeta: la activa se funde con la hoja blanca de abajo. */
-function PestanaCarpeta({ texto, activa, alPulsar }: { texto: string; activa: boolean; alPulsar: () => void }) {
+function PestanaCarpeta({
+  texto,
+  activa,
+  alPulsar,
+  guia,
+}: {
+  texto: string;
+  activa: boolean;
+  alPulsar: () => void;
+  guia?: ObjetivoGuia;
+}) {
+  const refGuia = useObjetivoGuia(guia);
   return (
     <Pressable
+      ref={refGuia}
+      collapsable={false}
       onPress={alPulsar}
       accessibilityRole="tab"
       accessibilityState={{ selected: activa }}
@@ -318,9 +366,12 @@ function EstadoVacio() {
 function BotonMas({ abajo, alPulsar }: { abajo: number; alPulsar: () => void }) {
   const presion = useSharedValue(1);
   const estilo = useAnimatedStyle(() => ({ transform: [{ scale: presion.value }] }));
+  const refGuia = useObjetivoGuia('mas');
   return (
     <Animated.View style={[estilos.mas, { bottom: abajo }, estilo]}>
       <Pressable
+        ref={refGuia}
+        collapsable={false}
         onPress={alPulsar}
         onPressIn={() => (presion.value = withTiming(0.92, { duration: 90 }))}
         onPressOut={() => (presion.value = withTiming(1, { duration: 160 }))}

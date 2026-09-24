@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GuiaProvider, useObjetivoGuia, type ObjetivoGuia } from '@/components/guia/guia';
 import { ReceptorCompartir } from '@/components/receptor-compartir';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useSubidaAutomatica } from '@/lib/guardado-local';
@@ -14,10 +15,10 @@ type Icono = keyof typeof MaterialCommunityIcons.glyphMap;
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 /** Icono lleno y de contorno de cada pestana. */
-const PESTANAS: Record<string, { titulo: string; icono: Icono; iconoActivo: Icono }> = {
+const PESTANAS: Record<string, { titulo: string; icono: Icono; iconoActivo: Icono; guia?: ObjetivoGuia }> = {
   index: { titulo: 'Recetas', icono: 'bookmark-outline', iconoActivo: 'bookmark' },
-  lista: { titulo: 'Lista', icono: 'basket-outline', iconoActivo: 'basket' },
-  perfil: { titulo: 'Perfil', icono: 'account-circle-outline', iconoActivo: 'account-circle' },
+  lista: { titulo: 'Lista', icono: 'basket-outline', iconoActivo: 'basket', guia: 'lista' },
+  perfil: { titulo: 'Perfil', icono: 'account-circle-outline', iconoActivo: 'account-circle', guia: 'perfil' },
 };
 
 export default function TabsLayout() {
@@ -25,7 +26,8 @@ export default function TabsLayout() {
   useSubidaAutomatica();
 
   return (
-    <>
+    // La guia de primeros pasos cubre tambien la barra de pestanas
+    <GuiaProvider>
       <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BarraFlotante {...props} />}>
         <Tabs.Screen name="index" />
         <Tabs.Screen name="lista" />
@@ -33,7 +35,7 @@ export default function TabsLayout() {
       </Tabs>
       {/* Solo Android recibe lo compartido; en web el modulo no existe */}
       {Platform.OS === 'android' ? <ReceptorCompartir /> : null}
-    </>
+    </GuiaProvider>
   );
 }
 
@@ -52,6 +54,7 @@ function BarraFlotante({ state, navigation }: BottomTabBarProps) {
             <Pestana
               key={ruta.key}
               titulo={datos.titulo}
+              guia={datos.guia}
               icono={activa ? datos.iconoActivo : datos.icono}
               activa={activa}
               alPulsar={() => {
@@ -66,7 +69,20 @@ function BarraFlotante({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-function Pestana({ titulo, icono, activa, alPulsar }: { titulo: string; icono: Icono; activa: boolean; alPulsar: () => void }) {
+function Pestana({
+  titulo,
+  icono,
+  activa,
+  alPulsar,
+  guia,
+}: {
+  titulo: string;
+  icono: Icono;
+  activa: boolean;
+  alPulsar: () => void;
+  guia?: ObjetivoGuia;
+}) {
+  const refGuia = useObjetivoGuia(guia);
   const fondo = useSharedValue(activa ? 1 : 0);
   useEffect(() => {
     fondo.value = withSpring(activa ? 1 : 0, { damping: 18, stiffness: 220 });
@@ -76,6 +92,8 @@ function Pestana({ titulo, icono, activa, alPulsar }: { titulo: string; icono: I
   const color = activa ? Marca.primario : Colors.light.textSecondary;
   return (
     <Pressable
+      ref={refGuia}
+      collapsable={false}
       onPress={alPulsar}
       accessibilityRole="tab"
       accessibilityState={{ selected: activa }}

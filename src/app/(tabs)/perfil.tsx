@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useGuia } from '@/components/guia/guia';
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { CuentaEnUso, InicioCancelado, useAuth } from '@/lib/auth';
@@ -22,6 +23,7 @@ export default function Perfil() {
   const router = useRouter();
   const qc = useQueryClient();
   const cuota = useCuota();
+  const guia = useGuia();
   const plus = cuota.data?.plus ?? false;
   const [ocupado, setOcupado] = useState<Ocupado>(null);
 
@@ -180,6 +182,18 @@ export default function Perfil() {
       </View>
 
       <View style={estilos.lista}>
+        <Opcion
+          icono="compass-outline"
+          texto="Ver la guía otra vez"
+          alPulsar={() => {
+            // La guia recorre la biblioteca: primero se vuelve alli
+            router.navigate('/');
+            setTimeout(() => guia.iniciar(true), 600);
+          }}
+          ocupado={false}
+          apagado={false}
+        />
+        <View style={estilos.separador} />
         <Opcion icono="shield-lock-outline" texto="Política de privacidad" alPulsar={() => abrirLegal('privacidad')} ocupado={false} apagado={false} />
         <View style={estilos.separador} />
         <Opcion icono="file-document-outline" texto="Términos de uso" alPulsar={() => abrirLegal('terminos')} ocupado={false} apagado={false} />
