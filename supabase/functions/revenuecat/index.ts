@@ -33,6 +33,8 @@ type Evento = {
   aliases?: string[];
   entitlement_ids?: string[] | null;
   expiration_at_ms?: number | null;
+  /** Solo en BILLING_ISSUE: hasta cuando dura la gracia que da Google Play. */
+  grace_period_expiration_at_ms?: number | null;
   product_id?: string;
   transferred_from?: string[];
   transferred_to?: string[];
@@ -88,10 +90,15 @@ Deno.serve(async (req) => {
   if (ACTIVAN.has(e.type) && esPlus) {
     const { error } = await guardar(userId, true, e.expiration_at_ms, e.product_id);
     if (error) return json({ error: error.message }, 500);
+  } else if (e.type === 'BILLING_ISSUE' && esPlus && e.grace_period_expiration_at_ms) {
+    // Fallo el cobro: durante la gracia de Google Play (7 dias el mensual, 14 el
+    // anual) sigue con Plus mientras se reintenta. Si nunca se paga, llega EXPIRATION.
+    const { error } = await guardar(userId, true, e.grace_period_expiration_at_ms, e.product_id);
+    if (error) return json({ error: error.message }, 500);
   } else if (e.type === 'EXPIRATION') {
     const { error } = await guardar(userId, false, null, e.product_id);
     if (error) return json({ error: error.message }, 500);
   }
-  // CANCELLATION, BILLING_ISSUE y el resto no quitan Plus: vence en su fecha
+  // CANCELLATION y el resto no quitan Plus: vence en su fecha
   return json({ ok: true });
 });
