@@ -30,6 +30,16 @@ export type Ingrediente = {
   name_normalized: string | null;
   note: string | null;
   group_label: string | null;
+  /** Lo pone la IA al importar; las recetas a mano no lo tienen. */
+  emoji: string | null;
+};
+
+/** Estimacion por porcion que hace la IA al importar. */
+export type Nutricion = {
+  calorias?: number;
+  proteinas_g?: number;
+  carbohidratos_g?: number;
+  grasas_g?: number;
 };
 
 export type Paso = {
@@ -56,6 +66,7 @@ export type Receta = {
   is_favorite: boolean;
   tags: string[];
   extraction_id: string | null;
+  nutrition: Nutricion | null;
   created_at: string;
   updated_at: string;
 };
@@ -69,6 +80,8 @@ export type RecetaCompleta = Receta & {
 export type BorradorReceta = {
   title: string;
   description?: string | null;
+  /** URL de la foto (importadas de la web) o ruta en Storage. */
+  image_path?: string | null;
   servings?: number | null;
   prep_minutes?: number | null;
   cook_minutes?: number | null;
@@ -77,8 +90,17 @@ export type BorradorReceta = {
   source_author?: string | null;
   status?: EstadoReceta;
   tags?: string[];
-  ingredients?: { raw_text: string; quantity?: number | null; unit?: string | null; name?: string | null }[];
+  ingredients?: {
+    raw_text: string;
+    quantity?: number | null;
+    unit?: string | null;
+    name?: string | null;
+    group_label?: string | null;
+    emoji?: string | null;
+  }[];
   steps?: { text: string; duration_seconds?: number | null }[];
+  nutrition?: Nutricion | null;
+  extraction_id?: string | null;
 };
 
 export type Coleccion = {
