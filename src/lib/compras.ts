@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, LogBox, Platform } from 'react-native';
 
 /**
  * Suscripciones de Recetifia+ con RevenueCat.
@@ -17,56 +17,39 @@ export type Plan = {
   precio: string;
   /** Solo en el anual: lo que sale al mes. */
   precioMensual?: string;
-  diasPrueba: number;
 };
 
 /** Mismo derecho (entitlement) que se configure en el panel de RevenueCat. */
 const DERECHO_PLUS = 'plus';
 
 /**
- * Precios de referencia, en USD. Los reales los fija Google Play por pais y
- * llegan desde RevenueCat ya en la moneda local.
+ * Precios de referencia, en USD. Los reales los fija Google Play por pais (en
+ * moneda local) y llegan desde RevenueCat. Sin prueba de Google Play: pide
+ * tarjeta, y "me cobraron la prueba" es de las quejas mas repetidas. El plan
+ * gratis ya sirve para probar la app de verdad.
  */
 export const PLANES_RESPALDO: Record<IdPlan, Plan> = {
-  anual: { id: 'anual', precio: 'US$12,99', precioMensual: 'US$1,08', diasPrueba: 3 },
-  // Sin prueba a proposito: la prueba empuja hacia el anual
-  mensual: { id: 'mensual', precio: 'US$3,99', diasPrueba: 0 },
+  anual: { id: 'anual', precio: 'US$9,99', precioMensual: 'US$0,83' },
+  mensual: { id: 'mensual', precio: 'US$1,99' },
 };
 
-/** Descuento del anual frente a pagar doce meses (12,99 frente a 47,88). */
-export const AHORRO_ANUAL = '73%';
+/** Descuento del anual frente a pagar doce meses (9,99 frente a 23,88). */
+export const AHORRO_ANUAL = '58%';
+
+/** Pagina de Google Play donde se ve, cambia o cancela la suscripcion. */
+export function abrirGestionDeSuscripcion() {
+  return Linking.openURL('https://play.google.com/store/account/subscriptions?package=app.recetifia');
+}
 
 /**
  * Limites del plan gratis y de la prueba. Se muestran aqui, pero se hacen
- * cumplir en el servidor por cuenta de usuario: reinstalar la app no los
- * reinicia.
+ * cumplir en el servidor por cuenta de usuario (Edge Function "importar").
+ * Guardar, escribir, organizar y la lista de compras no tienen tope.
  */
 export const LIMITES = {
-  importacionesGratisAlMes: 3,
-  recetasGratis: 25,
-  coleccionesGratis: 1,
-  importacionesPrueba: 5,
+  /** Lo unico limitado del plan gratis: importar con IA desde videos e imagenes. */
+  importacionesPorSemana: 10,
 } as const;
-
-type Valor = boolean | string;
-
-/** Gratis frente a Plus. Lo usan la comparacion de planes y el paywall. */
-export const BENEFICIOS: { titulo: string; detalle?: string; gratis: Valor; plus: Valor; estrella?: boolean }[] = [
-  {
-    titulo: 'Importaciones con IA',
-    detalle: 'de reels, TikTok, YouTube y webs',
-    gratis: `${LIMITES.importacionesGratisAlMes} al mes`,
-    plus: 'Ilimitadas',
-    estrella: true,
-  },
-  { titulo: 'Recetas guardadas', gratis: `Hasta ${LIMITES.recetasGratis}`, plus: 'Ilimitadas' },
-  { titulo: 'Colecciones', gratis: String(LIMITES.coleccionesGratis), plus: 'Ilimitadas' },
-  { titulo: 'Importar desde fotos y cuadernos', gratis: false, plus: true },
-  { titulo: 'Ajuste de porciones y unidades', gratis: false, plus: true },
-  { titulo: 'Lista de compras por pasillo', detalle: 'armada desde varias recetas', gratis: 'Simple', plus: true },
-  { titulo: 'Recetas sin conexión', gratis: false, plus: true },
-  { titulo: 'Ideas de recetas a tu hora', gratis: false, plus: true },
-];
 
 const CLAVE = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
 
@@ -86,6 +69,10 @@ function sdk(): ModuloPurchases | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const modulo = require('react-native-purchases').default as ModuloPurchases;
+      // Mientras RevenueCat no tenga productos de Google Play, el SDK registra un
+      // error al pedir las ofertas por su cuenta. Es esperado: el paywall usa los
+      // precios de respaldo. Solo se oculta ese aviso de la pantalla de desarrollo.
+      if (__DEV__) LogBox.ignoreLogs(['Error fetching offerings']);
       modulo.configure({ apiKey: CLAVE! });
       purchases = modulo;
     } catch {
@@ -93,6 +80,22 @@ function sdk(): ModuloPurchases | null {
     }
   }
   return purchases;
+}
+
+/**
+ * Liga las compras a la cuenta de Supabase: asi Plus sigue a la persona (otro
+ * telefono, reinstalar) y el webhook sabe a quien darselo. Se llama al cambiar
+ * de sesion.
+ */
+export async function identificarCompras(userId: string | null) {
+  const p = sdk();
+  if (!p) return;
+  try {
+    if (userId) await p.logIn(userId);
+    else if (!(await p.isAnonymous())) await p.logOut();
+  } catch {
+    // Sin red: se reintenta en el proximo cambio de sesion o al abrir la app
+  }
 }
 
 /** Planes con los precios locales de Google Play, o los de respaldo. */
@@ -106,13 +109,8 @@ export async function cargarPlanes(): Promise<Record<IdPlan, Plan>> {
     paquetes = { anual: actual.annual, mensual: actual.monthly };
     const anual = actual.annual.product;
     return {
-      anual: {
-        id: 'anual',
-        precio: anual.priceString,
-        precioMensual: anual.pricePerMonthString ?? undefined,
-        diasPrueba: 3,
-      },
-      mensual: { id: 'mensual', precio: actual.monthly.product.priceString, diasPrueba: 0 },
+      anual: { id: 'anual', precio: anual.priceString, precioMensual: anual.pricePerMonthString ?? undefined },
+      mensual: { id: 'mensual', precio: actual.monthly.product.priceString },
     };
   } catch {
     return PLANES_RESPALDO;
@@ -130,6 +128,18 @@ export async function comprar(plan: IdPlan): Promise<ResultadoCompra> {
     return customerInfo.entitlements.active[DERECHO_PLUS] ? 'comprado' : 'error';
   } catch (e) {
     return (e as { userCancelled?: boolean }).userCancelled ? 'cancelado' : 'error';
+  }
+}
+
+/** Si la cuenta tiene Recetifia+ activo (incluida la prueba). Sin RevenueCat, siempre no. */
+export async function tienePlus(): Promise<boolean> {
+  const p = sdk();
+  if (!p) return false;
+  try {
+    const info = await p.getCustomerInfo();
+    return Boolean(info.entitlements.active[DERECHO_PLUS]);
+  } catch {
+    return false;
   }
 }
 
