@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Marca, Spacing, Tipografia } from '@/constants/theme';
 import { InicioCancelado, useAuth } from '@/lib/auth';
+import { abrirLegal } from '@/lib/legal';
 
 export default function Login() {
   const { entrarConGoogle, entrarSinCuenta } = useAuth();
@@ -72,7 +73,15 @@ export default function Login() {
         </Pressable>
 
         <ThemedText type="small" style={estilos.legal}>
-          Al continuar aceptas nuestros términos y la política de privacidad.
+          Al continuar aceptas los{' '}
+          <ThemedText type="small" style={estilos.enlaceLegal} onPress={() => abrirLegal('terminos')}>
+            términos
+          </ThemedText>{' '}
+          y la{' '}
+          <ThemedText type="small" style={estilos.enlaceLegal} onPress={() => abrirLegal('privacidad')}>
+            política de privacidad
+          </ThemedText>
+          .
         </ThemedText>
       </View>
     </SafeAreaView>
@@ -95,5 +104,6 @@ const estilos = StyleSheet.create({
   sinCuenta: { alignSelf: 'center', paddingVertical: Spacing.two },
   textoSinCuenta: { fontFamily: Tipografia.seminegrita, color: Marca.primario },
   error: { color: '#D93025', textAlign: 'center' },
+  enlaceLegal: { textDecorationLine: 'underline' },
   legal: { textAlign: 'center', opacity: 0.6 },
 });

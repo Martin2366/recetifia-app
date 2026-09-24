@@ -10,6 +10,7 @@ import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { CuentaEnUso, InicioCancelado, useAuth } from '@/lib/auth';
 import { abrirGestionDeSuscripcion, LIMITES, restaurarCompras } from '@/lib/compras';
 import { claveCuota, useCuota } from '@/lib/cuota';
+import { abrirLegal } from '@/lib/legal';
 
 const FONDO = '#F7F2EE';
 
@@ -176,6 +177,12 @@ export default function Perfil() {
           ocupado={ocupado === 'borrado'}
           apagado={ocupado !== null}
         />
+      </View>
+
+      <View style={estilos.lista}>
+        <Opcion icono="shield-lock-outline" texto="Política de privacidad" alPulsar={() => abrirLegal('privacidad')} ocupado={false} apagado={false} />
+        <View style={estilos.separador} />
+        <Opcion icono="file-document-outline" texto="Términos de uso" alPulsar={() => abrirLegal('terminos')} ocupado={false} apagado={false} />
       </View>
     </ScrollView>
   );
