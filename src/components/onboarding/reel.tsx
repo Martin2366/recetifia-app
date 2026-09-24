@@ -1,9 +1,9 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, type Ref } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Indicacion, Pulso } from '@/components/onboarding/pulso';
 import { Marca, Tipografia } from '@/constants/theme';
 
 /**
@@ -24,15 +24,14 @@ export const RECETA_DEMO = {
   ],
 };
 
-export function Reel({
+/** `refCompartir` apunta al avion de papel, para que el recorrido lo resalte encima. */
+export const Reel = memo(function Reel({
   escala = 1,
-  resaltarCompartir = false,
-  alCompartir,
+  refCompartir,
   paddingInferior = 0,
 }: {
   escala?: number;
-  resaltarCompartir?: boolean;
-  alCompartir?: () => void;
+  refCompartir?: Ref<View>;
   paddingInferior?: number;
 }) {
   const e = (n: number) => n * escala;
@@ -50,20 +49,12 @@ export function Reel({
       <View style={[estilos.acciones, { right: e(10), bottom: e(96) + paddingInferior, gap: e(16) }]}>
         <Accion e={e} icono={<MaterialCommunityIcons name="heart-outline" size={e(28)} color="#FFF" />} cifra="12,4 mil" />
         <Accion e={e} icono={<MaterialCommunityIcons name="comment-outline" size={e(26)} color="#FFF" />} cifra="318" />
-        <Pressable
-          onPress={alCompartir}
-          disabled={!alCompartir}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Compartir el reel"
-          style={estilos.accion}>
-          <View style={{ width: e(40), height: e(34), alignItems: 'center', justifyContent: 'center' }}>
-            {resaltarCompartir ? <Pulso ancho={e(52)} alto={e(52)} radio={e(26)} color="#FFFFFF" /> : null}
+        <View style={estilos.accion}>
+          <View ref={refCompartir} collapsable={false} style={{ width: e(40), height: e(34), alignItems: 'center', justifyContent: 'center' }}>
             <FontAwesome6 name="paper-plane" size={e(23)} color="#FFF" />
-            {resaltarCompartir ? <Indicacion texto="Toca aquí" lado="izquierda" /> : null}
           </View>
           <Text style={[estilos.cifra, { fontSize: e(11) }]}>1.024</Text>
-        </Pressable>
+        </View>
         <Accion e={e} icono={<MaterialCommunityIcons name="bookmark-outline" size={e(28)} color="#FFF" />} />
       </View>
 
@@ -84,7 +75,7 @@ export function Reel({
       </View>
     </View>
   );
-}
+});
 
 function Accion({ e, icono, cifra }: { e: (n: number) => number; icono: React.ReactNode; cifra?: string }) {
   return (

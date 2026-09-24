@@ -3,20 +3,20 @@ import { ActivityIndicator, Pressable, StyleSheet, useColorScheme, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Marca, Spacing, Tipografia } from '@/constants/theme';
 import { InicioCancelado, useAuth } from '@/lib/auth';
 
 export default function Login() {
-  const { entrarConGoogle } = useAuth();
+  const { entrarConGoogle, entrarSinCuenta } = useAuth();
   const [entrando, setEntrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const colores = Colors[useColorScheme() === 'dark' ? 'dark' : 'light'];
 
-  async function alPulsar() {
+  async function entrar(como: 'google' | 'sin-cuenta') {
     setError(null);
     setEntrando(true);
     try {
-      await entrarConGoogle();
+      await (como === 'google' ? entrarConGoogle() : entrarSinCuenta());
       // No navegamos aqui: el guardian de la raiz reacciona al cambio de sesion.
     } catch (err) {
       if (!(err instanceof InicioCancelado)) {
@@ -44,7 +44,7 @@ export default function Login() {
         ) : null}
 
         <Pressable
-          onPress={alPulsar}
+          onPress={() => entrar('google')}
           disabled={entrando}
           accessibilityRole="button"
           accessibilityLabel="Continuar con Google"
@@ -59,6 +59,16 @@ export default function Login() {
               Continuar con Google
             </ThemedText>
           )}
+        </Pressable>
+
+        {/* La cuenta es para respaldar, no un peaje: se puede usar sin ella */}
+        <Pressable
+          onPress={() => entrar('sin-cuenta')}
+          disabled={entrando}
+          hitSlop={8}
+          accessibilityRole="button"
+          style={({ pressed }) => [estilos.sinCuenta, { opacity: pressed || entrando ? 0.6 : 1 }]}>
+          <ThemedText style={estilos.textoSinCuenta}>Seguir sin cuenta</ThemedText>
         </Pressable>
 
         <ThemedText type="small" style={estilos.legal}>
@@ -82,6 +92,8 @@ const estilos = StyleSheet.create({
     paddingHorizontal: Spacing.four,
   },
   textoBoton: { fontWeight: '600' },
+  sinCuenta: { alignSelf: 'center', paddingVertical: Spacing.two },
+  textoSinCuenta: { fontFamily: Tipografia.seminegrita, color: Marca.primario },
   error: { color: '#D93025', textAlign: 'center' },
   legal: { textAlign: 'center', opacity: 0.6 },
 });

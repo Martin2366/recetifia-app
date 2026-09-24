@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 /**
  * Adaptador de almacenamiento para la sesion de Supabase.
@@ -20,7 +21,7 @@ async function borrarTrozos(clave: string, cuantos: number) {
   await Promise.all(borrados);
 }
 
-export const almacenSeguro = {
+const almacenNativo = {
   async getItem(clave: string): Promise<string | null> {
     try {
       const contador = await SecureStore.getItemAsync(claveContador(clave));
@@ -71,3 +72,33 @@ export const almacenSeguro = {
     }
   },
 };
+
+/**
+ * En web (solo la vista previa) SecureStore no existe: sin esto la sesion no se
+ * guarda y todas las consultas salen sin usuario. localStorage basta ahi.
+ */
+const almacenWeb = {
+  async getItem(clave: string) {
+    try {
+      return globalThis.localStorage?.getItem(clave) ?? null;
+    } catch {
+      return null;
+    }
+  },
+  async setItem(clave: string, valor: string) {
+    try {
+      globalThis.localStorage?.setItem(clave, valor);
+    } catch {
+      // Navegacion privada o almacenamiento bloqueado: la sesion no persiste.
+    }
+  },
+  async removeItem(clave: string) {
+    try {
+      globalThis.localStorage?.removeItem(clave);
+    } catch {
+      // nada que hacer
+    }
+  },
+};
+
+export const almacenSeguro = Platform.OS === 'web' ? almacenWeb : almacenNativo;

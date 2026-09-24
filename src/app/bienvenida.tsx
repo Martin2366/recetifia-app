@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -361,6 +362,11 @@ export default function Bienvenida() {
 
       {mostrarBoton ? (
         <Animated.View entering={FadeInDown.duration(550).easing(SUAVE)} style={[estilos.pie, { paddingBottom: insets.bottom + 20 }]}>
+          {/* Lo primero que se dice del precio: que no hay precio */}
+          <View style={estilos.gratis}>
+            <MaterialIcons name="check-circle" size={17} color={Marca.exito} />
+            <Text style={estilos.textoGratis}>Gratis para siempre · Sin tarjeta</Text>
+          </View>
           <Pressable
             onPress={() => salir('empezar')}
             accessibilityRole="button"
@@ -514,6 +520,8 @@ const estilos = StyleSheet.create({
   pie: { position: 'absolute', left: 24, right: 24, bottom: 0, zIndex: 40, gap: 14 },
   boton: { backgroundColor: Marca.primario, minHeight: 56, borderRadius: Radios.pildora, alignItems: 'center', justifyContent: 'center' },
   textoBoton: { fontFamily: Tipografia.seminegrita, fontSize: 17, color: '#FFFFFF' },
+  gratis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  textoGratis: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text },
   enlace: { alignSelf: 'center', paddingVertical: 4 },
   textoEnlace: { fontFamily: Tipografia.regular, fontSize: 15, color: Colors.light.textSecondary },
   textoEnlaceMarca: { fontFamily: Tipografia.seminegrita, color: Marca.primario },

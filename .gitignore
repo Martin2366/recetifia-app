@@ -39,3 +39,15 @@ Thumbs.db
 *.pem
 *.mobileprovision
 yarn-debug.*
+
+# Temporales del CLI de Supabase
+supabase/.temp/
+
+# Capturas de terceros usadas como referencia: el repo es publico
+assets/onboarding/
+assets/inicio/
+
+# Reseñas de terceros y capturas personales: no van en un repo público
+reseñas/
+bugs/
+.claude/settings.local.json

@@ -18,6 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Marca, Radios, Tipografia } from '@/constants/theme';
+import { LIMITES } from '@/lib/compras';
 
 /**
  * Primera pantalla del onboarding: el ciclo de la app en tres pasos (guarda,
@@ -60,7 +61,7 @@ const PASOS: {
     icono: 'restaurant',
     etiqueta: 'Cocina',
     titulo: 'Y a cocinar,\npaso a paso.',
-    texto: 'Ajusta las porciones, arma tu lista de compras y sigue cada paso sin perderte.',
+    texto: 'Arma tu lista de compras y sigue cada paso sin perderte, con la pantalla siempre encendida.',
   },
 ];
 
@@ -128,7 +129,7 @@ export default function Onboarding() {
   );
 
   function comenzar() {
-    router.push('/onboarding/objetivos');
+    router.push('/onboarding/tour');
   }
 
   return (
@@ -178,6 +179,18 @@ export default function Onboarding() {
         </View>
 
         <Animated.View style={[estilos.acciones, estiloAcciones]}>
+          {/* Que es gratis y que tiene limite, dicho antes de pedir nada */}
+          <View style={estilos.gratis}>
+            <View style={estilos.filaGratis}>
+              <MaterialIcons name="check-circle" size={18} color={Marca.primario} />
+              <Text style={estilos.tituloGratis}>Gratis para siempre · Sin tarjeta</Text>
+            </View>
+            <Text style={estilos.detalleGratis}>
+              Guarda, escribe y organiza sin límite. Solo importar con IA desde videos e imágenes tiene un tope:{' '}
+              {LIMITES.importacionesPorSemana} por semana.
+            </Text>
+          </View>
+
           <Pressable
             onPress={comenzar}
             accessibilityRole="button"
@@ -325,6 +338,17 @@ const estilos = StyleSheet.create({
   descripcion: { fontFamily: Tipografia.regular, fontSize: 16, lineHeight: 24, color: 'rgba(255, 255, 255, 0.82)', maxWidth: 340 },
 
   acciones: { gap: 22 },
+  gratis: {
+    gap: 6,
+    padding: 14,
+    borderRadius: Radios.medio,
+    backgroundColor: 'rgba(0, 0, 0, 0.38)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  filaGratis: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tituloGratis: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: '#FFFFFF' },
+  detalleGratis: { fontFamily: Tipografia.regular, fontSize: 13, lineHeight: 19, color: 'rgba(255, 255, 255, 0.82)' },
   boton: { backgroundColor: Marca.primario, minHeight: 56, borderRadius: Radios.pildora, alignItems: 'center', justifyContent: 'center' },
   textoBoton: { fontFamily: Tipografia.seminegrita, fontSize: 17, color: '#FFFFFF' },
 

@@ -1,13 +1,14 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { BlurTargetView, BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -17,46 +18,132 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Indicacion, Pulso } from '@/components/onboarding/pulso';
 import { RECETA_DEMO, Reel } from '@/components/onboarding/reel';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
+import { useAuth } from '@/lib/auth';
 
 /**
  * Recorrido guiado e interactivo: el usuario importa de mentira una receta desde
  * un reel, tocando lo mismo que tocara de verdad. Tres toques y la receta
- * aparece ordenada. Los toques fuera del objetivo sacuden la instruccion.
+ * aparece ordenada.
+ *
+ * En cada paso la escena queda desenfocada y solo el objetivo se ve nitido: se
+ * mide donde esta y se dibuja una copia encima del desenfoque, con su pulso.
+ * Los toques fuera del objetivo sacuden la instruccion.
  */
 
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 
-type Etapa = 'reel' | 'hoja' | 'android' | 'importando' | 'lista';
+const BlurAnimado = Animated.createAnimatedComponent(BlurView);
 
-const INSTRUCCIONES: Partial<Record<Etapa, { paso: number; texto: string }>> = {
+type Etapa = 'reel' | 'hoja' | 'android' | 'importando' | 'lista';
+type Guiada = 'reel' | 'hoja' | 'android';
+type Rect = { x: number; y: number; w: number; h: number };
+
+const INSTRUCCIONES: Record<Guiada, { paso: number; texto: string }> = {
   reel: { paso: 1, texto: 'Viste una receta que te encantó. Toca el avión de papel para compartirla.' },
   hoja: { paso: 2, texto: 'Toca «Compartir en…» para abrir el menú de Android.' },
   android: { paso: 3, texto: 'Elige Recetifia entre tus apps.' },
 };
 
+// Lo que se dibuja nitido sobre el desenfoque en cada paso
+const OBJETIVOS: Record<
+  Guiada,
+  { etiqueta: string; icono: ReactNode; fondo: string; radio: number; pulso: number; colorPulso?: string; lado: 'izquierda' | 'arriba' | 'abajo' }
+> = {
+  reel: {
+    etiqueta: 'Compartir el reel',
+    icono: <FontAwesome6 name="paper-plane" size={23} color="#FFF" />,
+    fondo: 'transparent',
+    radio: 26,
+    pulso: 52,
+    colorPulso: '#FFFFFF',
+    lado: 'izquierda',
+  },
+  hoja: {
+    etiqueta: 'Compartir en…',
+    icono: <MaterialCommunityIcons name="share-variant" size={23} color="#222" />,
+    fondo: '#EFEFEF',
+    radio: 26,
+    pulso: 56,
+    lado: 'arriba',
+  },
+  android: {
+    etiqueta: 'Recetifia',
+    icono: <Image source={require('@/assets/images/logo-blanco.png')} style={{ width: 30, height: 26 }} contentFit="contain" />,
+    fondo: Marca.primario,
+    radio: 18,
+    pulso: 60,
+    lado: 'abajo',
+  },
+};
+
 const MENSAJES_CARGA = ['Viendo el reel…', 'Anotando los ingredientes…', 'Ordenando los pasos…'];
 
+function esGuiada(etapa: Etapa): etapa is Guiada {
+  return etapa === 'reel' || etapa === 'hoja' || etapa === 'android';
+}
+
 export default function Tour() {
-  const router = useRouter();
+  const { entrarSinCuenta } = useAuth();
+  const [entrando, setEntrando] = useState(false);
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const [etapa, setEtapa] = useState<Etapa>('reel');
+  // Paso cuyo objetivo ya esta quieto en pantalla y se puede medir
+  const [asentada, setAsentada] = useState<Guiada | null>(null);
+  const [foco, setFoco] = useState<Rect | null>(null);
+
+  const raiz = useRef<View>(null);
+  const escena = useRef<View>(null);
+  const refs = {
+    reel: useRef<View>(null),
+    hoja: useRef<View>(null),
+    android: useRef<View>(null),
+  };
 
   const instruccion = useSharedValue(0);
   const sacudida = useSharedValue(0);
+  const desenfoque = useSharedValue(0);
   const hoja = useSharedValue(0);
   const android = useSharedValue(0);
 
+  // Al entrar: el reel se ve un instante y luego se desenfoca alrededor del avion
+  useEffect(() => {
+    desenfoque.value = withDelay(350, withTiming(1, { duration: 450 }));
+    const t = setTimeout(() => setAsentada('reel'), 350);
+    return () => clearTimeout(t);
+  }, [desenfoque]);
+
   // Cada instruccion nueva entra desde arriba
   useEffect(() => {
-    if (!INSTRUCCIONES[etapa]) return;
+    if (!esGuiada(etapa)) return;
     instruccion.value = 0;
     instruccion.value = withDelay(etapa === 'reel' ? 400 : 250, withTiming(1, { duration: 450, easing: SUAVE }));
   }, [etapa, instruccion]);
+
+  // Mide el objetivo relativo a la pantalla; se repite si cambia la ventana (web)
+  useEffect(() => {
+    if (!asentada) return;
+    const objetivo = refs[asentada].current;
+    const pantalla = raiz.current;
+    if (!objetivo || !pantalla) return;
+    pantalla.measureInWindow((rx, ry) => {
+      objetivo.measureInWindow((x, y, w, h) => setFoco({ x: x - rx, y: y - ry, w, h }));
+    });
+    // refs es estable en la practica: son useRef
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asentada, width, height]);
+
+  const pasarA = useCallback((siguiente: Etapa) => {
+    setFoco(null);
+    setAsentada(null);
+    setEtapa(siguiente);
+  }, []);
 
   function pista() {
     sacudida.value = withSequence(
@@ -69,59 +156,89 @@ export default function Tour() {
   }
 
   function abrirHoja() {
-    setEtapa('hoja');
-    hoja.value = withTiming(1, { duration: 420, easing: SUAVE });
+    pasarA('hoja');
+    hoja.value = withTiming(1, { duration: 420, easing: SUAVE }, (fin) => {
+      if (fin) scheduleOnRN(setAsentada, 'hoja');
+    });
   }
 
   function abrirAndroid() {
+    pasarA('android');
     hoja.value = withTiming(0, { duration: 220 });
-    setEtapa('android');
-    android.value = withDelay(180, withTiming(1, { duration: 420, easing: SUAVE }));
+    android.value = withDelay(
+      180,
+      withTiming(1, { duration: 420, easing: SUAVE }, (fin) => {
+        if (fin) scheduleOnRN(setAsentada, 'android');
+      })
+    );
   }
 
   function importar() {
+    pasarA('importando');
+    desenfoque.value = withTiming(0, { duration: 200 });
     android.value = withTiming(0, { duration: 220 });
-    setEtapa('importando');
   }
 
-  function terminar() {
-    router.push('/onboarding/configurando');
+  // Sin cuenta ni preguntas: se entra a la app y el guardian de la raiz lleva a
+  // la biblioteca en cuanto hay sesion. La cuenta de Google es opcional, para
+  // respaldar, y se ofrece desde el perfil.
+  async function terminar() {
+    if (entrando) return;
+    setEntrando(true);
+    try {
+      await entrarSinCuenta();
+    } catch (err) {
+      setEntrando(false);
+      Alert.alert('No pudimos entrar', err instanceof Error ? err.message : 'Inténtalo de nuevo en un momento.');
+    }
   }
 
   const estiloInstruccion = useAnimatedStyle(() => ({
     opacity: instruccion.value,
     transform: [{ translateY: interpolate(instruccion.value, [0, 1], [-16, 0]) }, { translateX: sacudida.value }],
   }));
-  const estiloVelo = useAnimatedStyle(() => ({ opacity: Math.max(hoja.value, android.value) * 0.5 }));
+  // Se anima la intensidad y no la opacidad: con un padre semitransparente el
+  // backdrop-filter de la web deja de pintarse
+  const propsDesenfoque = useAnimatedProps(() => ({ intensity: desenfoque.value * 34 }));
   const estiloHoja = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(hoja.value, [0, 1], [520, 0]) }] }));
   const estiloAndroid = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(android.value, [0, 1], [560, 0]) }] }));
 
-  const guia = INSTRUCCIONES[etapa];
-  const oscuro = etapa === 'reel' || etapa === 'hoja' || etapa === 'android';
+  const guiada = esGuiada(etapa);
+  const guia = guiada ? INSTRUCCIONES[etapa] : null;
+  const accion = etapa === 'reel' ? abrirHoja : etapa === 'hoja' ? abrirAndroid : importar;
 
   return (
-    <View style={estilos.pantalla}>
-      <StatusBar style={oscuro ? 'light' : 'dark'} />
+    <View ref={raiz} collapsable={false} style={estilos.pantalla}>
+      <StatusBar style={guiada ? 'light' : 'dark'} />
 
-      {/* El reel ocupa toda la pantalla; tocar fuera del objetivo da una pista */}
-      <Pressable style={StyleSheet.absoluteFill} onPress={pista} accessible={false}>
-        <Reel resaltarCompartir={etapa === 'reel'} alCompartir={etapa === 'reel' ? abrirHoja : undefined} paddingInferior={insets.bottom} />
+      {/* La escena que se desenfoca: el reel y las dos hojas de compartir */}
+      <BlurTargetView ref={escena} style={StyleSheet.absoluteFill}>
+        <Reel refCompartir={refs.reel} paddingInferior={insets.bottom} />
+
+        <Animated.View style={[estilos.hoja, { paddingBottom: insets.bottom + 24 }, estiloHoja]}>
+          <HojaInstagram refObjetivo={refs.hoja} />
+        </Animated.View>
+
+        <Animated.View style={[estilos.hoja, estilos.hojaAndroid, { paddingBottom: insets.bottom + 56 }, estiloAndroid]}>
+          <HojaAndroid refObjetivo={refs.android} />
+        </Animated.View>
+      </BlurTargetView>
+
+      {/* Todo queda borroso; tocar fuera del objetivo da una pista */}
+      <Pressable pointerEvents={guiada ? 'auto' : 'none'} style={StyleSheet.absoluteFill} onPress={pista} accessible={false}>
+        <BlurAnimado
+          blurTarget={escena}
+          blurMethod="dimezisBlurViewSdk31Plus"
+          tint="dark"
+          animatedProps={propsDesenfoque}
+          style={StyleSheet.absoluteFill}
+        />
       </Pressable>
 
-      <Animated.View pointerEvents={etapa === 'hoja' || etapa === 'android' ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, estilos.velo, estiloVelo]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={pista} accessible={false} />
-      </Animated.View>
-
-      <Animated.View style={[estilos.hoja, { paddingBottom: insets.bottom + 24 }, estiloHoja]}>
-        <HojaInstagram activa={etapa === 'hoja'} alCompartirEn={abrirAndroid} />
-      </Animated.View>
-
-      <Animated.View style={[estilos.hoja, estilos.hojaAndroid, { paddingBottom: insets.bottom + 56 }, estiloAndroid]}>
-        <HojaAndroid activa={etapa === 'android'} alElegir={importar} />
-      </Animated.View>
+      {guiada && foco ? <Foco key={etapa} rect={foco} objetivo={OBJETIVOS[etapa]} alPulsar={accion} /> : null}
 
       {etapa === 'importando' ? <Importando alTerminar={() => setEtapa('lista')} /> : null}
-      {etapa === 'lista' ? <RecetaLista alContinuar={terminar} paddingInferior={insets.bottom} /> : null}
+      {etapa === 'lista' ? <RecetaLista alContinuar={terminar} entrando={entrando} paddingInferior={insets.bottom} /> : null}
 
       {guia ? (
         <Animated.View style={[estilos.instruccion, { top: insets.top + 56 }, estiloInstruccion]} accessibilityLiveRegion="polite">
@@ -136,11 +253,44 @@ export default function Tour() {
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Omitir el recorrido"
-          style={({ pressed }) => [estilos.omitir, { top: insets.top + 10, opacity: pressed ? 0.7 : 1 }, !oscuro && estilos.omitirClaro]}>
-          <Text style={[estilos.textoOmitir, !oscuro && estilos.textoOmitirClaro]}>Omitir</Text>
+          style={({ pressed }) => [estilos.omitir, { top: insets.top + 10, opacity: pressed ? 0.7 : 1 }, !guiada && estilos.omitirClaro]}>
+          <Text style={[estilos.textoOmitir, !guiada && estilos.textoOmitirClaro]}>Omitir</Text>
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+// --- El objetivo nitido, encima del desenfoque --------------------------------
+
+function Foco({ rect, objetivo, alPulsar }: { rect: Rect; objetivo: (typeof OBJETIVOS)[Guiada]; alPulsar: () => void }) {
+  const v = useSharedValue(0);
+  useEffect(() => {
+    v.value = withTiming(1, { duration: 280, easing: SUAVE });
+  }, [v]);
+  const estilo = useAnimatedStyle(() => ({
+    opacity: v.value,
+    transform: [{ scale: interpolate(v.value, [0, 1], [0.8, 1]) }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        estilos.foco,
+        { left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderRadius: objetivo.radio, backgroundColor: objetivo.fondo },
+        estilo,
+      ]}>
+      <Pulso ancho={objetivo.pulso} alto={objetivo.pulso} radio={objetivo.radio} color={objetivo.colorPulso} />
+      <Pressable
+        onPress={alPulsar}
+        hitSlop={14}
+        accessibilityRole="button"
+        accessibilityLabel={objetivo.etiqueta}
+        style={estilos.toqueFoco}>
+        {objetivo.icono}
+      </Pressable>
+      <Indicacion texto="Toca aquí" lado={objetivo.lado} />
+    </Animated.View>
   );
 }
 
@@ -157,7 +307,8 @@ const CONTACTOS = [
   { nombre: 'Tío Beto', color: '#A3B18A' },
 ];
 
-function HojaInstagram({ activa, alCompartirEn }: { activa: boolean; alCompartirEn: () => void }) {
+// Solo dibujo: el toque lo recibe la copia nitida de Foco
+const HojaInstagram = memo(function HojaInstagram({ refObjetivo }: { refObjetivo: Ref<View> }) {
   return (
     <View>
       <View style={estilos.asa} />
@@ -182,39 +333,22 @@ function HojaInstagram({ activa, alCompartirEn }: { activa: boolean; alCompartir
         <AccionHoja etiqueta="Añadir a historia" icono={<MaterialCommunityIcons name="plus-circle-outline" size={24} color="#222" />} />
         <AccionHoja etiqueta="Copiar enlace" icono={<MaterialCommunityIcons name="link-variant" size={24} color="#222" />} />
         <AccionHoja etiqueta="WhatsApp" icono={<FontAwesome6 name="whatsapp" brand size={24} color="#25D366" />} />
-        <AccionHoja
-          etiqueta="Compartir en…"
-          icono={<MaterialCommunityIcons name="share-variant" size={23} color="#222" />}
-          resaltada={activa}
-          alPulsar={activa ? alCompartirEn : undefined}
-        />
+        <AccionHoja etiqueta="Compartir en…" icono={OBJETIVOS.hoja.icono} refCirculo={refObjetivo} />
       </View>
     </View>
   );
-}
+});
 
-function AccionHoja({
-  etiqueta,
-  icono,
-  resaltada = false,
-  alPulsar,
-}: {
-  etiqueta: string;
-  icono: ReactNode;
-  resaltada?: boolean;
-  alPulsar?: () => void;
-}) {
+function AccionHoja({ etiqueta, icono, refCirculo }: { etiqueta: string; icono: ReactNode; refCirculo?: Ref<View> }) {
   return (
-    <Pressable onPress={alPulsar} disabled={!alPulsar} accessibilityRole="button" accessibilityLabel={etiqueta} style={estilos.accionHoja}>
-      <View style={estilos.circuloAccion}>
-        {resaltada ? <Pulso ancho={56} alto={56} radio={28} /> : null}
+    <View style={estilos.accionHoja}>
+      <View ref={refCirculo} collapsable={false} style={estilos.circuloAccion}>
         {icono}
-        {resaltada ? <Indicacion texto="Toca aquí" lado="arriba" /> : null}
       </View>
       <Text style={estilos.etiquetaAccion} numberOfLines={2}>
         {etiqueta}
       </Text>
-    </Pressable>
+    </View>
   );
 }
 
@@ -228,17 +362,12 @@ const APPS: App[] = [
   { nombre: 'WhatsApp', icono: <FontAwesome6 name="whatsapp" brand size={28} color="#25D366" /> },
   { nombre: 'Mensajes', icono: <MaterialCommunityIcons name="message-text" size={26} color="#1A73E8" /> },
   { nombre: 'Chrome', icono: <MaterialCommunityIcons name="google-chrome" size={28} color="#4285F4" /> },
-  {
-    nombre: 'Recetifia',
-    fondo: Marca.primario,
-    recetifia: true,
-    icono: <Image source={require('@/assets/images/logo-blanco.png')} style={{ width: 30, height: 26 }} contentFit="contain" />,
-  },
+  { nombre: 'Recetifia', fondo: OBJETIVOS.android.fondo, recetifia: true, icono: OBJETIVOS.android.icono },
   { nombre: 'Telegram', icono: <FontAwesome6 name="telegram" brand size={28} color="#29A9EB" /> },
   { nombre: 'Bluetooth', icono: <MaterialCommunityIcons name="bluetooth" size={26} color="#1A73E8" /> },
 ];
 
-function HojaAndroid({ activa, alElegir }: { activa: boolean; alElegir: () => void }) {
+const HojaAndroid = memo(function HojaAndroid({ refObjetivo }: { refObjetivo: Ref<View> }) {
   return (
     <View>
       <View style={estilos.asa} />
@@ -256,29 +385,21 @@ function HojaAndroid({ activa, alElegir }: { activa: boolean; alElegir: () => vo
       </View>
       <Text style={estilos.tituloApps}>Compartir con apps</Text>
       <View style={estilos.apps}>
-        {APPS.map((a) => {
-          const objetivo = a.recetifia && activa;
-          return (
-            <Pressable
-              key={a.nombre}
-              onPress={objetivo ? alElegir : undefined}
-              disabled={!objetivo}
-              accessibilityRole="button"
-              accessibilityLabel={a.nombre}
-              style={estilos.app}>
-              <View style={[estilos.iconoApp, a.fondo ? { backgroundColor: a.fondo } : null]}>
-                {objetivo ? <Pulso ancho={60} alto={60} radio={20} /> : null}
-                {a.icono}
-              </View>
-              <Text style={[estilos.nombreApp, a.recetifia && estilos.nombreRecetifia]}>{a.nombre}</Text>
-              {objetivo ? <Indicacion texto="Toca aquí" lado="abajo" /> : null}
-            </Pressable>
-          );
-        })}
+        {APPS.map((a) => (
+          <View key={a.nombre} style={estilos.app}>
+            <View
+              ref={a.recetifia ? refObjetivo : undefined}
+              collapsable={false}
+              style={[estilos.iconoApp, a.fondo ? { backgroundColor: a.fondo } : null]}>
+              {a.icono}
+            </View>
+            <Text style={[estilos.nombreApp, a.recetifia && estilos.nombreRecetifia]}>{a.nombre}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
-}
+});
 
 // --- Paso 4: importando -------------------------------------------------------
 
@@ -304,7 +425,8 @@ function Importando({ alTerminar }: { alTerminar: () => void }) {
   const estiloLogo = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + latido.value * 0.08 }, { rotate: `${(latido.value - 0.5) * 8}deg` }],
   }));
-  const estiloBarra = useAnimatedStyle(() => ({ width: `${barra.value * 100}%` }));
+  // Escala en vez de ancho: no recalcula el layout en cada fotograma
+  const estiloBarra = useAnimatedStyle(() => ({ transform: [{ scaleX: barra.value }] }));
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, estilos.importando, estiloFondo]}>
@@ -323,7 +445,15 @@ function Importando({ alTerminar }: { alTerminar: () => void }) {
 
 // --- Paso 5: la receta, ya ordenada -------------------------------------------
 
-function RecetaLista({ alContinuar, paddingInferior }: { alContinuar: () => void; paddingInferior: number }) {
+function RecetaLista({
+  alContinuar,
+  entrando,
+  paddingInferior,
+}: {
+  alContinuar: () => void;
+  entrando: boolean;
+  paddingInferior: number;
+}) {
   const insets = useSafeAreaInsets();
   const titulo = useSharedValue(0);
   const tarjeta = useSharedValue(0);
@@ -374,7 +504,7 @@ function RecetaLista({ alContinuar, paddingInferior }: { alContinuar: () => void
       </Animated.View>
 
       <Animated.View style={[estilos.pieLista, { paddingBottom: paddingInferior + 20 }, estiloPie]}>
-        <BotonOnboarding texto="Continuar" alPulsar={alContinuar} />
+        <BotonOnboarding texto={entrando ? 'Entrando…' : 'Ir a mi biblioteca'} alPulsar={alContinuar} apagado={entrando} />
       </Animated.View>
     </View>
   );
@@ -456,7 +586,8 @@ const estilos = StyleSheet.create({
   pasoInstruccion: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primario },
   textoInstruccion: { fontFamily: Tipografia.seminegrita, fontSize: 16, lineHeight: 22, color: Colors.light.text },
 
-  velo: { backgroundColor: '#000' },
+  foco: { position: 'absolute' },
+  toqueFoco: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   hoja: {
     position: 'absolute',
     left: 0,
@@ -526,7 +657,7 @@ const estilos = StyleSheet.create({
   },
   textoCarga: { fontFamily: Tipografia.seminegrita, fontSize: 17, color: Colors.light.text },
   pistaCarga: { alignSelf: 'stretch', height: 6, borderRadius: 3, backgroundColor: '#F1E6E0', overflow: 'hidden' },
-  rellenoCarga: { height: 6, borderRadius: 3, backgroundColor: Marca.primario },
+  rellenoCarga: { height: 6, borderRadius: 3, backgroundColor: Marca.primario, transformOrigin: 'left' },
 
   lista: { backgroundColor: '#FFF7F3' },
   tituloLista: { fontFamily: Tipografia.display, fontSize: 30, lineHeight: 38, textAlign: 'center', color: Colors.light.text },
