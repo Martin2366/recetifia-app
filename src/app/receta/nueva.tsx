@@ -21,6 +21,7 @@ import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { tomarBorrador } from '@/lib/borrador';
 import { borrarBorrador, guardarBorrador, leerBorrador, nuevoId, type BorradorConId } from '@/lib/guardado-local';
+import { useCampoVisible } from '@/lib/teclado';
 import { useActualizarReceta, useCrearReceta, useReceta } from '@/lib/recetas';
 import type { BorradorReceta, RecetaCompleta } from '@/lib/tipos';
 
@@ -154,6 +155,9 @@ function Cargando({ mensaje, alReintentar }: { mensaje?: string; alReintentar?: 
 function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartarRecuperado: () => void }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // El boton "Guardar receta" queda fijo sobre el teclado: el campo va por encima
+  const scroll = useRef<ScrollView>(null);
+  const { alDesplazar, alEnfocar } = useCampoVisible(scroll, 110);
   const crear = useCrearReceta();
   const actualizar = useActualizarReceta();
   const guardando = crear.isPending || actualizar.isPending;
@@ -299,7 +303,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
   const tituloCabecera = modo === 'editar' ? 'Editar receta' : importada ? 'Revisar receta' : 'Nueva receta';
 
   return (
-    <KeyboardAvoidingView style={[estilos.pantalla, { paddingTop: insets.top }]} behavior="height">
+    <KeyboardAvoidingView style={[estilos.pantalla, { paddingTop: insets.top }]} behavior="padding">
       <StatusBar style="dark" />
       <View style={estilos.cabecera}>
         <Pressable onPress={cancelar} hitSlop={10} accessibilityRole="button">
@@ -315,7 +319,12 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
         )}
       </View>
 
-      <ScrollView contentContainerStyle={[estilos.cuerpo, { paddingBottom: insets.bottom + 120 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scroll}
+        onScroll={alDesplazar}
+        scrollEventThrottle={16}
+        contentContainerStyle={[estilos.cuerpo, { paddingBottom: insets.bottom + 120 }]}
+        keyboardShouldPersistTaps="handled">
         {recuperado ? (
           <View style={[estilos.aviso, estilos.avisoRecuperado]}>
             <MaterialCommunityIcons name="content-save-check-outline" size={20} color={Marca.exito} />
@@ -341,6 +350,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
 
         <View style={estilos.bloque}>
           <TextInput
+            onFocus={alEnfocar}
             value={titulo}
             onChangeText={setTitulo}
             placeholder="Título"
@@ -379,6 +389,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
             <Text style={estilos.etiqueta}>Tiempo total</Text>
             <View style={estilos.tiempo}>
               <TextInput
+                onFocus={alEnfocar}
                 value={tiempo}
                 onChangeText={(t) => setTiempo(t.replace(/[^0-9]/g, ''))}
                 placeholder="30"
@@ -403,6 +414,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
               placeholder="Ej: 2 tazas de harina"
               enfocar={enfocar === l.clave}
               alCambiar={(t) => setIngredientes((ls) => ls.map((x) => (x.clave === l.clave ? { ...x, texto: t } : x)))}
+              alEnfocar={alEnfocar}
               alQuitar={() => setIngredientes((ls) => (ls.length > 1 ? ls.filter((x) => x.clave !== l.clave) : [linea()]))}
               alEnviar={() => agregar('ing')}
             />
@@ -425,6 +437,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
               placeholder="Describe este paso"
               enfocar={enfocar === l.clave}
               alCambiar={(t) => setPasos((ls) => ls.map((x) => (x.clave === l.clave ? { ...x, texto: t } : x)))}
+              alEnfocar={alEnfocar}
               alQuitar={() => setPasos((ls) => (ls.length > 1 ? ls.filter((x) => x.clave !== l.clave) : [linea()]))}
             />
           ))}
@@ -459,6 +472,7 @@ function Renglon({
   alCambiar,
   alQuitar,
   alEnviar,
+  alEnfocar,
 }: {
   valor: string;
   marca: React.ReactNode;
@@ -468,6 +482,7 @@ function Renglon({
   alCambiar: (t: string) => void;
   alQuitar: () => void;
   alEnviar?: () => void;
+  alEnfocar?: () => void;
 }) {
   const ref = useRef<TextInput>(null);
   return (
@@ -475,6 +490,7 @@ function Renglon({
       {marca}
       <TextInput
         ref={ref}
+        onFocus={alEnfocar}
         value={valor}
         onChangeText={alCambiar}
         placeholder={placeholder}

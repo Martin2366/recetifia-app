@@ -27,7 +27,7 @@ export default function ImportarTexto() {
   }
 
   return (
-    <KeyboardAvoidingView style={[estilos.pantalla, { paddingTop: insets.top }]} behavior="height">
+    <KeyboardAvoidingView style={[estilos.pantalla, { paddingTop: insets.top }]} behavior="padding">
       <StatusBar style="dark" />
       <View style={estilos.cabecera}>
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Cerrar">

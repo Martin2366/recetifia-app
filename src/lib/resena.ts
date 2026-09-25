@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { supabase } from './supabase';
 
@@ -20,7 +21,9 @@ export async function pedirResenaSiToca() {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'done');
     if (error || (count ?? 0) < IMPORTACIONES_MINIMAS) return;
-    // Carga perezosa: un build sin el modulo nativo no se cae al abrir la app
+    // Un build sin el modulo nativo (el de desarrollo) ni siquiera lo carga:
+    // cargarlo lanza un error que la pantalla roja de desarrollo muestra igual
+    if (!requireOptionalNativeModule('ExpoStoreReview')) return;
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const StoreReview = require('expo-store-review') as typeof import('expo-store-review');
     if (!(await StoreReview.isAvailableAsync())) return;

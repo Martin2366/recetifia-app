@@ -1,7 +1,7 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, BackHandler, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -90,7 +90,9 @@ export function HojaAgregar({
         <Pressable style={StyleSheet.absoluteFill} onPress={alCerrar} accessibilityLabel="Cerrar" />
       </Animated.View>
 
-      <Animated.View style={[estilos.hoja, { paddingBottom: insets.bottom + 20 }, estiloHoja]}>
+      {/* La hoja sube con el teclado: al nombrar una coleccion, el campo queda a la vista */}
+      <KeyboardAvoidingView behavior="padding" style={estilos.contenedorHoja} pointerEvents="box-none">
+        <Animated.View style={[estilos.hoja, { paddingBottom: insets.bottom + 20 }, estiloHoja]}>
         <View style={estilos.asa} />
         <Animated.View style={estiloVista}>
           {vista === 'menu' ? (
@@ -158,7 +160,8 @@ export function HojaAgregar({
 
           {vista === 'coleccion' ? <VistaColeccion alVolver={volver} alListo={alCerrar} /> : null}
         </Animated.View>
-      </Animated.View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -280,11 +283,8 @@ function Paso({ n, texto }: { n: number; texto: string }): ReactNode {
 
 const estilos = StyleSheet.create({
   velo: { backgroundColor: '#1A0F0A' },
+  contenedorHoja: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hoja: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     paddingHorizontal: 18,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
