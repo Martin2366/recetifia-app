@@ -37,7 +37,7 @@ const ENV = {
 // Plan gratis: guardar, escribir y organizar no tienen tope. Solo se limita lo
 // que nos cuesta dinero, importar con IA desde videos e imagenes. Las webs no
 // cuentan: casi siempre traen la receta publicada y salen gratis.
-const LIMITE_SEMANA = Number(Deno.env.get('IMPORTACIONES_POR_SEMANA') ?? 15);
+const LIMITE_SEMANA = Number(Deno.env.get('IMPORTACIONES_POR_SEMANA') ?? 8);
 const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest'];
 
 // Freno de gasto: el presupuesto de validacion es de 30 USD al mes. Pasado este
