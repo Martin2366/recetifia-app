@@ -22,6 +22,14 @@ import { textoIngredienteEscalado } from '@/lib/porciones';
 import { itemDesdeIngrediente, useAgregarALista } from '@/lib/lista';
 import { useBorrarReceta, useReceta } from '@/lib/recetas';
 
+/** Atajos de porciones: lo que la gente piensa ("somos 4"), no un numero suelto. */
+const ATAJOS = [
+  { personas: 1, texto: 'Solo yo', emoji: '🙋' },
+  { personas: 2, texto: 'Pareja', emoji: '👫' },
+  { personas: 4, texto: 'Familia', emoji: '👨‍👩‍👧‍👦' },
+  { personas: 8, texto: 'Visitas', emoji: '🎉' },
+];
+
 export default function DetalleReceta() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -165,33 +173,62 @@ export default function DetalleReceta() {
           </View>
         ) : null}
 
-        {/* Porciones */}
-        <View style={[estilos.porciones, { backgroundColor: colores.backgroundElement }]}>
-          <ThemedText type="smallBold">Porciones</ThemedText>
-          <View style={estilos.contador}>
-            <Pressable
-              onPress={() => setPorciones(Math.max(1, (porcionesActuales ?? 1) - 1))}
-              hitSlop={10}
-              accessibilityLabel="Menos porciones"
-              style={estilos.paso}>
-              <MaterialIcons name="remove" size={22} color={colores.text} />
-            </Pressable>
-            <ThemedText style={estilos.numero}>{porcionesActuales ?? '—'}</ThemedText>
-            <Pressable
-              onPress={() => setPorciones((porcionesActuales ?? 1) + 1)}
-              hitSlop={10}
-              accessibilityLabel="Más porciones"
-              style={estilos.paso}>
-              <MaterialIcons name="add" size={22} color={colores.text} />
-            </Pressable>
+        {/* Porciones: un toque para lo comun, y +/- para lo exacto */}
+        {porcionesBase ? (
+          <View style={[estilos.porciones, { backgroundColor: colores.backgroundElement }]}>
+            <View style={estilos.filaPorciones}>
+              <ThemedText type="smallBold">¿Para cuántos cocinas?</ThemedText>
+              <View style={estilos.contador}>
+                <Pressable
+                  onPress={() => setPorciones(Math.max(1, (porcionesActuales ?? 1) - 1))}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Menos porciones"
+                  style={estilos.paso}>
+                  <MaterialIcons name="remove" size={22} color={colores.text} />
+                </Pressable>
+                <ThemedText style={estilos.numero}>{porcionesActuales}</ThemedText>
+                <Pressable
+                  onPress={() => setPorciones((porcionesActuales ?? 1) + 1)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Más porciones"
+                  style={estilos.paso}>
+                  <MaterialIcons name="add" size={22} color={colores.text} />
+                </Pressable>
+              </View>
+            </View>
+            <View style={estilos.atajos}>
+              {ATAJOS.map((a) => {
+                const activo = porcionesActuales === a.personas;
+                return (
+                  <Pressable
+                    key={a.personas}
+                    onPress={() => setPorciones(a.personas)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activo }}
+                    style={[estilos.atajo, activo && estilos.atajoActivo]}>
+                    <ThemedText style={[estilos.textoAtajo, activo && estilos.textoAtajoActivo]}>
+                      {a.emoji} {a.texto}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {escalada ? (
+              <ThemedText type="small" style={estilos.ajustado}>
+                Cantidades ajustadas: la receta original es para {porcionesBase}.
+              </ThemedText>
+            ) : null}
           </View>
-        </View>
-
-        {escalada ? (
-          <ThemedText type="small" style={estilos.ajustado}>
-            Cantidades ajustadas de {porcionesBase} a {porcionesActuales} porciones.
-          </ThemedText>
-        ) : null}
+        ) : (
+          <View style={[estilos.porciones, { backgroundColor: colores.backgroundElement }]}>
+            <ThemedText type="small" style={estilos.tenue}>
+              Esta receta no dice para cuántas personas es. Edítala (lápiz de arriba) e indícalo para poder ajustar las
+              cantidades.
+            </ThemedText>
+          </View>
+        )}
 
         {/* Ingredientes */}
         <View style={estilos.seccion}>
@@ -215,10 +252,10 @@ export default function DetalleReceta() {
               accessibilityRole="button"
               style={({ pressed }) => [estilos.agregarLista, (pressed || agregarALista.isPending) && { opacity: 0.7 }]}>
               {agregarALista.isPending ? (
-                <ActivityIndicator color={Marca.primario} />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
-                  <MaterialIcons name="add-shopping-cart" size={20} color={Marca.primario} />
+                  <MaterialIcons name="add-shopping-cart" size={20} color="#FFFFFF" />
                   <ThemedText style={estilos.textoAgregarLista}>Agregar a la lista de compras</ThemedText>
                 </>
               )}
@@ -279,10 +316,9 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: Marca.primario,
+    backgroundColor: Marca.primario,
   },
-  textoAgregarLista: { color: Marca.primario, fontWeight: '600' },
+  textoAgregarLista: { color: '#FFFFFF', fontWeight: '600' },
   reintentar: { marginTop: Spacing.three, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 999, backgroundColor: Marca.primario },
   textoReintentar: { color: '#FFFFFF', fontWeight: '600' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -291,13 +327,17 @@ const estilos = StyleSheet.create({
   aviso: { flexDirection: 'row', gap: Spacing.two, padding: Spacing.three, borderRadius: 12, alignItems: 'center' },
   avisoTexto: { flex: 1 },
   porciones: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.three,
     padding: Spacing.three,
     borderRadius: 12,
   },
   contador: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  filaPorciones: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  atajos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  atajo: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: '#EDE5E0', backgroundColor: '#FFFFFF' },
+  atajoActivo: { borderColor: Marca.primario, backgroundColor: Marca.primarioTenue },
+  textoAtajo: { fontSize: 14 },
+  textoAtajoActivo: { color: Marca.primario, fontWeight: '600' },
   paso: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   numero: { fontSize: 18, fontWeight: '700', minWidth: 28, textAlign: 'center' },
   ajustado: { opacity: 0.7, marginTop: -Spacing.two },

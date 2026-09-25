@@ -54,15 +54,29 @@ const ACTORES: Partial<Record<Fuente, { id: string; entrada: (url: string) => un
   facebook: {
     id: 'apify~facebook-posts-scraper',
     entrada: (url) => ({ startUrls: [{ url }], resultsLimit: 1 }),
+    // Los posts traen texto y media; los videos y reels llegan como objeto
+    // "Video", sin texto y con el archivo en videoDeliveryLegacyFields (se
+    // prefiere SD: pesa menos para Whisper y para subirlo a Gemini).
     leer: (it) => ({
       texto: it.text || it.message || '',
-      video: it.media?.[0]?.url || it.videoUrl || null,
-      miniatura: it.media?.[0]?.thumbnail || null,
-      autor: it.user?.name || '',
+      video:
+        it.media?.[0]?.url ||
+        it.videoUrl ||
+        it.videoDeliveryLegacyFields?.browser_native_sd_url ||
+        it.videoDeliveryLegacyFields?.browser_native_hd_url ||
+        null,
+      miniatura: it.media?.[0]?.thumbnail || it.preferred_thumbnail?.image?.uri || null,
+      autor: it.user?.name || autorDePermalink(it.permalink_url) || '',
       subtitulos: [],
     }),
   },
 };
+
+/** "https://www.facebook.com/Quevivalacocina1/videos/123/" → "Quevivalacocina1". */
+function autorDePermalink(url?: string): string {
+  const m = url?.match(/facebook\.com\/([^/?]+)\/(videos|reel|posts)/);
+  return m && m[1] !== 'watch' ? m[1] : '';
+}
 
 /** Coste aproximado por llamada, en USD (tarifas de los actores). */
 export const COSTE_APIFY: Partial<Record<Fuente, number>> = { instagram: 0.0027, tiktok: 0.0037, facebook: 0.005 };

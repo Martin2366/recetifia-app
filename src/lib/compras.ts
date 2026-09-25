@@ -48,7 +48,7 @@ export function abrirGestionDeSuscripcion() {
  */
 export const LIMITES = {
   /** Lo unico limitado del plan gratis: importar con IA desde videos e imagenes. */
-  importacionesPorSemana: 10,
+  importacionesPorSemana: 15,
 } as const;
 
 const CLAVE = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;

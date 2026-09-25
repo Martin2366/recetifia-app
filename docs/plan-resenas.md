@@ -8,7 +8,7 @@ una decisión anterior choque con esto, manda esto.
 
 1. **Gratis de verdad.** Guardar, escribir, organizar, la lista de compras y el
    modo cocina no tienen tope. Solo se limita la importación con IA desde
-   videos e imágenes: **10 por semana** en el plan gratis.
+   videos e imágenes: **15 por semana** en el plan gratis (subido de 10 el 25 sep).
 2. **Se dice desde la primera pantalla.** "Gratis. Sin tarjeta." aparece antes
    de cualquier pregunta. Nada de paywall en el onboarding.
 3. **Primero sirve, después se vende.** Plus se ofrece solo cuando la persona

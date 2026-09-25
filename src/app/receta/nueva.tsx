@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { tomarBorrador } from '@/lib/borrador';
 import { borrarBorrador, guardarBorrador, leerBorrador, nuevoId, type BorradorConId } from '@/lib/guardado-local';
@@ -314,7 +315,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
         )}
       </View>
 
-      <ScrollView contentContainerStyle={[estilos.cuerpo, { paddingBottom: insets.bottom + 40 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[estilos.cuerpo, { paddingBottom: insets.bottom + 120 }]} keyboardShouldPersistTaps="handled">
         {recuperado ? (
           <View style={[estilos.aviso, estilos.avisoRecuperado]}>
             <MaterialCommunityIcons name="content-save-check-outline" size={20} color={Marca.exito} />
@@ -430,6 +431,21 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
           <Agregar texto="Agregar paso" alPulsar={() => agregar('paso')} />
         </View>
       </ScrollView>
+
+      {/* El "Guardar" de arriba es chico: aqui el paso final, imposible de no ver */}
+      <View style={[estilos.pie, { paddingBottom: insets.bottom + 12 }]}>
+        {guardando ? (
+          <View style={estilos.guardandoPie}>
+            <ActivityIndicator color="#FFFFFF" />
+          </View>
+        ) : (
+          <BotonOnboarding
+            texto={puedeGuardar ? 'Guardar receta' : 'Escribe un título para guardar'}
+            alPulsar={guardar}
+            apagado={!puedeGuardar}
+          />
+        )}
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -527,6 +543,14 @@ const estilos = StyleSheet.create({
   enlaceAviso: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Colors.light.textSecondary },
 
   cargando: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32, backgroundColor: '#F7F2EE' },
+  pie: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.borde,
+  },
+  guardandoPie: { minHeight: 56, borderRadius: Radios.pildora, backgroundColor: Marca.primario, alignItems: 'center', justifyContent: 'center' },
   textoCargando: { fontFamily: Tipografia.media, fontSize: 16, lineHeight: 23, textAlign: 'center', color: Colors.light.text },
   botonReintentar: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: Radios.pildora, backgroundColor: Marca.primario },
   textoReintentar: { fontFamily: Tipografia.seminegrita, fontSize: 16, color: '#FFFFFF' },

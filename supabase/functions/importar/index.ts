@@ -37,7 +37,7 @@ const ENV = {
 // Plan gratis: guardar, escribir y organizar no tienen tope. Solo se limita lo
 // que nos cuesta dinero, importar con IA desde videos e imagenes. Las webs no
 // cuentan: casi siempre traen la receta publicada y salen gratis.
-const LIMITE_SEMANA = Number(Deno.env.get('IMPORTACIONES_POR_SEMANA') ?? 10);
+const LIMITE_SEMANA = Number(Deno.env.get('IMPORTACIONES_POR_SEMANA') ?? 15);
 const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest'];
 
 // Freno de gasto: el presupuesto de validacion es de 30 USD al mes. Pasado este
@@ -71,6 +71,21 @@ Deno.serve(async (req) => {
   const url = urlsEnTexto(entrada)[0] ?? entrada;
   const fuente = detectarFuente(url);
   if (!fuente) return json({ error: 'enlace' }, 400);
+
+  // El mismo enlace dos veces en dos minutos es un doble toque o un doble
+  // aviso de "Compartir": se devuelve el trabajo que ya esta en marcha, sin
+  // cobrar otra vez la IA ni gastar otra importacion de la cuota.
+  const { data: reciente } = await admin
+    .from('import_jobs')
+    .select('id')
+    .eq('user_id', usuario.id)
+    .eq('source_url', url)
+    .in('status', ['queued', 'running', 'done'])
+    .gte('created_at', new Date(Date.now() - 120_000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (reciente) return json({ jobId: reciente.id });
 
   // Cuota del plan gratis, contada en el servidor y por cuenta. Solo cuentan las
   // importaciones que salieron bien: las fallidas no gastan nada.

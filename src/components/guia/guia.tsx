@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
+import { LIMITES } from '@/lib/compras';
 
 /**
  * Guia de primeros pasos: la primera vez que se llega a la biblioteca, un foco
@@ -24,7 +25,7 @@ export type ObjetivoGuia = 'mas' | 'cuota' | 'colecciones' | 'lista' | 'perfil';
 
 const PASOS: { clave: ObjetivoGuia; titulo: string; texto: string }[] = [
   { clave: 'mas', titulo: 'Todo empieza aquí', texto: 'Con el + agregas recetas: desde un reel, pegando el texto o escribiéndola tú.' },
-  { clave: 'cuota', titulo: 'Tus importaciones', texto: 'Importar videos es gratis: 10 por semana. Guardar, escribir y organizar, sin límite.' },
+  { clave: 'cuota', titulo: 'Tus importaciones', texto: `Importar videos es gratis: ${LIMITES.importacionesPorSemana} por semana. Guardar, escribir y organizar, sin límite.` },
   { clave: 'colecciones', titulo: 'Colecciones', texto: 'Agrupa tus recetas en carpetas: postres, almuerzos rápidos, lo de la abuela.' },
   { clave: 'lista', titulo: 'Lista de compras', texto: 'Desde cualquier receta, sus ingredientes llegan aquí, ordenados por pasillo.' },
   { clave: 'perfil', titulo: 'Tu perfil', texto: 'Respalda tus recetas con Google y no las pierdes si cambias de teléfono.' },

@@ -23,7 +23,7 @@ Compártela desde Instagram, TikTok, YouTube o Facebook a Recetifia: leemos la p
 
 GRATIS DE VERDAD, SIN TARJETA
 • Guarda, escribe y organiza todas las recetas que quieras, sin límite.
-• Importa hasta 10 recetas por semana desde videos e imágenes. Las que fallan no se cuentan.
+• Importa hasta 15 recetas por semana desde videos e imágenes. Las que fallan no se cuentan.
 • Pegar el texto de una receta, traerla de una página web o escribirla a mano es siempre ilimitado.
 • Empiezas sin crear cuenta. Cuando quieras, respaldas tus recetas con Google.
 

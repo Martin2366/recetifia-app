@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Escaner } from '@/components/importar/escaner';
@@ -15,7 +15,15 @@ import { dejarBorrador } from '@/lib/borrador';
 import { agregarAColeccion, useColecciones } from '@/lib/colecciones';
 import { LIMITES } from '@/lib/compras';
 import { claveCuota, useCuota } from '@/lib/cuota';
-import { cargarReceta, EnlaceInvalido, iniciarImportacion, LimiteAlcanzado, useTrabajo, type RecetaImportada } from '@/lib/importacion';
+import {
+  cargarReceta,
+  EnlaceInvalido,
+  iniciarImportacion,
+  LimiteAlcanzado,
+  useTrabajo,
+  type RecetaImportada,
+  type Rescate as DatosRescate,
+} from '@/lib/importacion';
 import { recetaDesdeTexto } from '@/lib/importar';
 import { useCrearReceta } from '@/lib/recetas';
 import { pedirResenaSiToca } from '@/lib/resena';
@@ -173,12 +181,11 @@ export default function Procesando() {
           abajo={insets.bottom}
         />
       ) : hayRescate ? (
-        <Estado
-          icono="text-box-edit-outline"
-          titulo="La completamos juntos"
-          texto="No logramos armar la receta entera, pero te dejamos lo que encontramos: el título, la foto y el texto de la publicación. El enlace queda guardado para que vuelvas al video."
-          boton={{ texto: 'Completarla', alPulsar: completarRescate }}
-          secundario={{ texto: 'Probar de nuevo', alPulsar: reintentar }}
+        <Rescate
+          datos={t!.rescate!}
+          alCompletar={completarRescate}
+          alVerVideo={() => url && Linking.openURL(url)}
+          alReintentar={reintentar}
           abajo={insets.bottom}
         />
       ) : fallo ? (
@@ -201,6 +208,77 @@ export default function Procesando() {
           <Escaner etapa={t?.stage ?? (jobId ? 'leyendo' : 'iniciando')} />
         </View>
       )}
+    </View>
+  );
+}
+
+/**
+ * La IA no armo la receta entera. En vez de un parrafo, se muestra que se
+ * encontro (con ✓) y que falta (con ✗), y un solo camino: completarla.
+ */
+function Rescate({
+  datos,
+  alCompletar,
+  alVerVideo,
+  alReintentar,
+  abajo,
+}: {
+  datos: DatosRescate;
+  alCompletar: () => void;
+  alVerVideo: () => void;
+  alReintentar: () => void;
+  abajo: number;
+}) {
+  const items: { texto: string; ok: boolean }[] = [
+    { texto: 'Título', ok: Boolean(datos.titulo) },
+    { texto: 'Foto', ok: Boolean(datos.foto) },
+    { texto: 'Enlace al video', ok: true },
+    { texto: datos.ingredientes.length ? `${datos.ingredientes.length} ingredientes` : 'Ingredientes', ok: datos.ingredientes.length > 0 },
+    { texto: datos.pasos.length ? `${datos.pasos.length} pasos` : 'Pasos', ok: datos.pasos.length > 0 },
+  ];
+  return (
+    <View style={[estilos.estado, { paddingBottom: abajo + 24 }]}>
+      <View style={estilos.centro}>
+        <Text style={estilos.titulo}>Nos faltó una parte</Text>
+        <Text style={estilos.texto}>Este video no dice todo en voz alta. Te dejamos lo que encontramos: tú agregas el resto.</Text>
+
+        <View style={estilos.tarjetaRescate}>
+          <View style={estilos.cabeceraRescate}>
+            {datos.foto ? (
+              <Image source={{ uri: datos.foto }} style={estilos.fotoRescate} contentFit="cover" />
+            ) : (
+              <View style={[estilos.fotoRescate, estilos.sinFoto]}>
+                <MaterialCommunityIcons name="silverware-fork-knife" size={24} color={Marca.primario} />
+              </View>
+            )}
+            <Text style={estilos.tituloRescate} numberOfLines={2}>
+              {datos.titulo || 'Receta sin título'}
+            </Text>
+          </View>
+          {items.map((i) => (
+            <View key={i.texto} style={estilos.filaRescate}>
+              <MaterialCommunityIcons
+                name={i.ok ? 'check-circle' : 'close-circle-outline'}
+                size={20}
+                color={i.ok ? Marca.exito : Colors.light.textTenue}
+              />
+              <Text style={[estilos.textoRescate, !i.ok && estilos.textoFalta]}>
+                {i.texto}
+                {i.ok ? '' : ': lo agregas tú'}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <BotonOnboarding texto="Completar receta" alPulsar={alCompletar} />
+      <View style={estilos.filaEnlaces}>
+        <Pressable onPress={alVerVideo} style={estilos.secundario} accessibilityRole="button">
+          <Text style={estilos.textoSecundario}>Ver el video</Text>
+        </Pressable>
+        <Pressable onPress={alReintentar} style={estilos.secundario} accessibilityRole="button">
+          <Text style={estilos.textoSecundario}>Intentar de nuevo</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -268,5 +346,23 @@ const estilos = StyleSheet.create({
   texto: { fontFamily: Tipografia.regular, fontSize: 16, lineHeight: 23, textAlign: 'center', color: Colors.light.textSecondary },
   secundario: { alignSelf: 'center', padding: 10 },
   textoPlus: { color: Marca.primario },
+  tarjetaRescate: {
+    alignSelf: 'stretch',
+    marginTop: 12,
+    padding: 16,
+    gap: 10,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.light.borde,
+  },
+  cabeceraRescate: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  fotoRescate: { width: 56, height: 56, borderRadius: 14 },
+  sinFoto: { backgroundColor: Marca.primarioTenue, alignItems: 'center', justifyContent: 'center' },
+  tituloRescate: { flex: 1, fontFamily: Tipografia.display, fontSize: 18, lineHeight: 23, color: Colors.light.text },
+  filaRescate: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  textoRescate: { fontFamily: Tipografia.media, fontSize: 15, color: Colors.light.text },
+  textoFalta: { color: Colors.light.textSecondary },
+  filaEnlaces: { flexDirection: 'row', justifyContent: 'center', gap: 12 },
   textoSecundario: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.textSecondary },
 });
