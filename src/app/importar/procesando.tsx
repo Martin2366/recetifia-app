@@ -41,7 +41,7 @@ export default function Procesando() {
 
   const [intento, setIntento] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [errorInicio, setErrorInicio] = useState<'limite' | 'enlace' | 'red' | null>(null);
+  const [errorInicio, setErrorInicio] = useState<'limite' | 'limite_plus' | 'enlace' | 'red' | null>(null);
   const [receta, setReceta] = useState<RecetaImportada | null>(null);
   const iniciado = useRef(-1);
 
@@ -57,7 +57,11 @@ export default function Procesando() {
     iniciado.current = intento;
     iniciarImportacion(url)
       .then(setJobId)
-      .catch((e) => setErrorInicio(e instanceof LimiteAlcanzado ? 'limite' : e instanceof EnlaceInvalido ? 'enlace' : 'red'));
+      .catch((e) =>
+        setErrorInicio(
+          e instanceof LimiteAlcanzado ? (e.plus ? 'limite_plus' : 'limite') : e instanceof EnlaceInvalido ? 'enlace' : 'red'
+        )
+      );
   }, [url, intento]);
 
   const t = trabajo.data;
@@ -172,12 +176,22 @@ export default function Procesando() {
       ) : errorInicio === 'limite' ? (
         // Primero lo gratis, y Plus al final: nunca se deja a nadie sin salida
         <Estado
-          icono="calendar-refresh"
-          titulo={`Ya usaste tus ${LIMITES.importacionesPorSemana} de esta semana`}
-          texto="Importar desde videos e imágenes se renueva el lunes. Mientras tanto, copia el texto de la publicación y pégalo aquí: eso es gratis y sin límite."
+          icono="lock-outline"
+          titulo={`Ya usaste tus ${cuota.data?.tope ?? LIMITES.importacionesGratis} importaciones gratis`}
+          texto="Copia el texto de la publicación y pégalo aquí: eso es gratis y sin límite. Tus recetas guardadas siguen siendo tuyas."
           boton={{ texto: 'Pegar el texto de la receta', alPulsar: () => router.replace('/importar/texto') }}
           secundario={{ texto: 'Escribirla a mano', alPulsar: aMano }}
           terciario={{ texto: 'Importar sin límite con Recetifia+', alPulsar: () => router.replace('/plus') }}
+          abajo={insets.bottom}
+        />
+      ) : errorInicio === 'limite_plus' ? (
+        // Tope de uso razonable de Plus: se renueva el dia 1, sin vender nada
+        <Estado
+          icono="calendar-refresh"
+          titulo="Llegaste al máximo de este mes"
+          texto={`Recetifia+ incluye ${cuota.data?.tope ?? LIMITES.plusPorMes} importaciones de videos e imágenes al mes, y se renuevan el día 1. Mientras tanto, pegar el texto de la publicación sigue sin límite.`}
+          boton={{ texto: 'Pegar el texto de la receta', alPulsar: () => router.replace('/importar/texto') }}
+          secundario={{ texto: 'Escribirla a mano', alPulsar: aMano }}
           abajo={insets.bottom}
         />
       ) : hayRescate ? (

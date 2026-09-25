@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useCrearColeccion } from '@/lib/colecciones';
-import { LIMITES } from '@/lib/compras';
 import type { Cuota } from '@/lib/cuota';
 
 /**
@@ -126,8 +125,8 @@ export function HojaAgregar({
               </View>
               {cuota && !cuota.plus ? (
                 <Text style={estilos.nota}>
-                  Te quedan {cuota.importacionesRestantes} de {LIMITES.importacionesPorSemana} importaciones de videos e
-                  imágenes esta semana. Se renuevan el lunes. Texto, web y a mano: sin límite.
+                  Te quedan {cuota.importacionesRestantes} de {cuota.tope} importaciones gratis de videos e imágenes.
+                  Texto, web y a mano: sin límite.
                 </Text>
               ) : null}
             </View>

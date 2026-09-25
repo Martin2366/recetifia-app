@@ -153,7 +153,9 @@ export default function Perfil() {
         <Text style={estilos.texto}>
           {plus
             ? 'Importaciones sin límite e información nutricional. Si cancelas, sigues con Plus hasta el final de lo que pagaste.'
-            : `Todo gratis y sin límite, salvo importar videos e imágenes: ${LIMITES.importacionesPorSemana} por semana.`}
+            : `Todo gratis y sin límite, salvo importar videos e imágenes: ${cuota.data?.tope ?? LIMITES.importacionesGratis} en total.${
+                cuota.data ? ` Te quedan ${cuota.data.importacionesRestantes}.` : ''
+              }`}
         </Text>
       </View>
       <View style={estilos.lista}>

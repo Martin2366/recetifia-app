@@ -44,7 +44,12 @@ export type RecetaImportada = BorradorReceta & {
   quality?: 'complete' | 'partial';
 };
 
-export class LimiteAlcanzado extends Error {}
+export class LimiteAlcanzado extends Error {
+  /** Si es el tope mensual de Plus (uso razonable) y no el del plan gratis. */
+  constructor(readonly plus = false) {
+    super('Llegaste al límite de importaciones.');
+  }
+}
 export class EnlaceInvalido extends Error {}
 
 export async function iniciarImportacion(url: string): Promise<string> {
@@ -52,7 +57,10 @@ export async function iniciarImportacion(url: string): Promise<string> {
   if (error) {
     if (error instanceof FunctionsHttpError) {
       const estado = error.context?.status;
-      if (estado === 402) throw new LimiteAlcanzado('Llegaste al límite de importaciones del mes.');
+      if (estado === 402) {
+        const cuerpo = await error.context.json().catch(() => null);
+        throw new LimiteAlcanzado(cuerpo?.error === 'limite_plus');
+      }
       if (estado === 400) throw new EnlaceInvalido('Ese enlace no parece válido.');
     }
     throw new Error('No pudimos empezar la importación. Revisa tu conexión.');

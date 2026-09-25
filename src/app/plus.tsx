@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { MarcaPlus } from '@/components/onboarding/formas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
-import { AHORRO_ANUAL, cargarPlanes, comprar, LIMITES, PLANES_RESPALDO, restaurarCompras, type IdPlan, type Plan } from '@/lib/compras';
+import { AHORRO_ANUAL, cargarPlanes, comprar, PLANES_RESPALDO, restaurarCompras, type IdPlan, type Plan } from '@/lib/compras';
 import { claveCuota } from '@/lib/cuota';
 
 /**
@@ -34,7 +34,7 @@ const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 // Solo lo que existe de verdad. Recetas, colecciones, fotos, porciones y el
 // modo cocina ya son gratis: Plus no puede venderlos.
 const INCLUYE = [
-  `Importa videos e imágenes sin el tope de ${LIMITES.importacionesPorSemana} por semana`,
+  'Importa videos e imágenes sin preocuparte del tope gratis',
   'Información nutricional de cada receta',
   'Apoyas una app hecha para Latinoamérica',
 ];

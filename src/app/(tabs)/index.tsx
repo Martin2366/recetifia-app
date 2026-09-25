@@ -243,7 +243,7 @@ function Cabecera({
             collapsable={false}
             onPress={alPulsarCuota}
             accessibilityRole="button"
-            accessibilityLabel={plus ? 'Tienes Recetifia Plus' : `Te quedan ${restantes} importaciones de videos e imágenes esta semana`}
+            accessibilityLabel={plus ? 'Tienes Recetifia Plus' : `Te quedan ${restantes} importaciones gratis de videos e imágenes`}
             style={({ pressed }) => [estilos.chip, pressed && { opacity: 0.8 }]}>
             <MaterialCommunityIcons name={plus ? 'crown' : 'lightning-bolt'} size={18} color={Marca.primario} />
             <Text style={estilos.textoChip}>{plus ? 'Plus' : `${restantes} restantes`}</Text>

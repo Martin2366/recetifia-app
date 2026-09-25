@@ -36,8 +36,8 @@ const ENV = {
 
 // Plan gratis: guardar, escribir y organizar no tienen tope. Solo se limita lo
 // que nos cuesta dinero, importar con IA desde videos e imagenes. Las webs no
-// cuentan: casi siempre traen la receta publicada y salen gratis.
-const LIMITE_SEMANA = Number(Deno.env.get('IMPORTACIONES_POR_SEMANA') ?? 8);
+// cuentan: casi siempre traen la receta publicada y salen gratis. Los topes
+// (10 en total gratis, 120 al mes con Plus) viven en public.ajustes.
 const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest'];
 
 // Freno de gasto: el presupuesto de validacion es de 30 USD al mes. Pasado este
@@ -89,19 +89,11 @@ Deno.serve(async (req) => {
 
   // Cuota del plan gratis, contada en el servidor y por cuenta. Solo cuentan las
   // importaciones que salieron bien: las fallidas no gastan nada.
+  // Plus (segun el webhook de RevenueCat) tiene su propio tope mensual contra abusos.
   if (FUENTES_CON_LIMITE.includes(fuente)) {
-    // Plus vigente segun el webhook de RevenueCat (cancelar no lo quita hasta que vence)
-    const { data: plus } = await admin.rpc('tiene_plus', { quien: usuario.id });
-    if (!plus) {
-      const { count } = await admin
-        .from('import_jobs')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', usuario.id)
-        .eq('status', 'done')
-        .in('source_type', FUENTES_CON_LIMITE)
-        .gte('created_at', inicioDeSemana().toISOString());
-      if ((count ?? 0) >= LIMITE_SEMANA) return json({ error: 'limite' }, 402);
-    }
+    const { data: cuota, error: errorCuota } = await admin.rpc('cuota_de', { quien: usuario.id });
+    if (errorCuota) console.error('cuota_de', errorCuota.message);
+    else if (cuota && cuota.restantes <= 0) return json({ error: cuota.plus ? 'limite_plus' : 'limite' }, 402);
   }
 
   const canonica = canonicalizar(url);
@@ -141,19 +133,6 @@ Deno.serve(async (req) => {
   EdgeRuntime.waitUntil(procesar(admin, job.id, url, canonica, hash, fuente, ahorro));
   return json({ jobId: job.id });
 });
-
-/**
- * Lunes a las 00:00 en UTC-5 (Colombia, Peru, Ecuador; domingo en la noche en
- * Mexico y lunes temprano en el Cono Sur). La app cuenta con la misma regla.
- */
-function inicioDeSemana(ahora = new Date()): Date {
-  const DESFASE = 5 * 3600_000;
-  const local = new Date(ahora.getTime() - DESFASE);
-  const diasDesdeLunes = (local.getUTCDay() + 6) % 7;
-  local.setUTCDate(local.getUTCDate() - diasDesdeLunes);
-  local.setUTCHours(0, 0, 0, 0);
-  return new Date(local.getTime() + DESFASE);
-}
 
 /** Si el gasto en IA del mes ya paso el tope. Ante la duda, no frena. */
 async function enModoAhorro(admin: SupabaseClient): Promise<boolean> {

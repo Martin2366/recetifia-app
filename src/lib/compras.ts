@@ -29,12 +29,12 @@ const DERECHO_PLUS = 'plus';
  * gratis ya sirve para probar la app de verdad.
  */
 export const PLANES_RESPALDO: Record<IdPlan, Plan> = {
-  anual: { id: 'anual', precio: 'US$9,99', precioMensual: 'US$0,83' },
-  mensual: { id: 'mensual', precio: 'US$1,99' },
+  anual: { id: 'anual', precio: 'US$14,99', precioMensual: 'US$1,25' },
+  mensual: { id: 'mensual', precio: 'US$2,49' },
 };
 
-/** Descuento del anual frente a pagar doce meses (9,99 frente a 23,88). */
-export const AHORRO_ANUAL = '58%';
+/** Descuento del anual frente a pagar doce meses (14,99 frente a 29,88). */
+export const AHORRO_ANUAL = '50%';
 
 /** Pagina de Google Play donde se ve, cambia o cancela la suscripcion. */
 export function abrirGestionDeSuscripcion() {
@@ -47,8 +47,10 @@ export function abrirGestionDeSuscripcion() {
  * Guardar, escribir, organizar y la lista de compras no tienen tope.
  */
 export const LIMITES = {
-  /** Lo unico limitado del plan gratis: importar con IA desde videos e imagenes. */
-  importacionesPorSemana: 8,
+  /** Lo unico limitado del plan gratis: importar con IA desde videos e imagenes, en total. */
+  importacionesGratis: 10,
+  /** Uso razonable de Plus, al mes. Respaldo: los valores reales vienen de public.ajustes. */
+  plusPorMes: 120,
 } as const;
 
 const CLAVE = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;

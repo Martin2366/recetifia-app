@@ -18,7 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Marca, Radios, Tipografia } from '@/constants/theme';
-import { LIMITES } from '@/lib/compras';
+import { useTopes } from '@/lib/cuota';
 
 /**
  * Primera pantalla del onboarding: el ciclo de la app en tres pasos (guarda,
@@ -70,6 +70,7 @@ const N = PASOS.length;
 export default function Onboarding() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const topes = useTopes();
   const sinMovimiento = useReducedMotion();
 
   const [activo, setActivo] = useState(0);
@@ -187,7 +188,7 @@ export default function Onboarding() {
             </View>
             <Text style={estilos.detalleGratis}>
               Guarda, escribe y organiza sin límite. Solo importar con IA desde videos e imágenes tiene un tope:{' '}
-              {LIMITES.importacionesPorSemana} por semana.
+              {topes.gratis} en total.
             </Text>
           </View>
 
