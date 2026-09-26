@@ -23,7 +23,7 @@ Compártela desde Instagram, TikTok, YouTube o Facebook a Recetifia: leemos la p
 
 GRATIS DE VERDAD, SIN TARJETA
 • Guarda, escribe y organiza todas las recetas que quieras, sin límite.
-• Importa hasta 15 recetas por semana desde videos e imágenes. Las que fallan no se cuentan.
+• 10 importaciones gratis desde videos e imágenes. Las que fallan no se cuentan, y desde una web o un texto importas sin límite.
 • Pegar el texto de una receta, traerla de una página web o escribirla a mano es siempre ilimitado.
 • Empiezas sin crear cuenta. Cuando quieras, respaldas tus recetas con Google.
 
@@ -44,7 +44,7 @@ NUNCA PIERDES LO QUE ESCRIBES
 • Si una importación no sale completa, te dejamos lo que encontramos para que la termines.
 
 RECETIFIA+ (OPCIONAL)
-Para quien importa mucho: importaciones de videos e imágenes sin el tope semanal, e información nutricional estimada de cada receta. Se paga por Google Play, mensual o anual, sin pruebas que se conviertan en cobros. Cancelas cuando quieras en dos toques y sigues con Plus hasta el final de lo que pagaste.
+Para quien importa mucho: importaciones de videos e imágenes sin el tope gratis, e información nutricional estimada de cada receta. Se paga por Google Play, mensual o anual, sin pruebas que se conviertan en cobros. Cancelas cuando quieras en dos toques y sigues con Plus hasta el final de lo que pagaste.
 
 TUS DATOS, EN TUS MANOS
 Sin anuncios. No vendemos tus datos. Puedes borrar tu cuenta y todas tus recetas desde la app, en cualquier momento.
