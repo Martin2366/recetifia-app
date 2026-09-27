@@ -2,7 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
@@ -27,7 +28,7 @@ export default function ImportarTexto() {
   }
 
   return (
-    <KeyboardAvoidingView style={[estilos.pantalla, { paddingTop: insets.top }]} behavior="padding">
+    <View style={[estilos.pantalla, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       <View style={estilos.cabecera}>
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Cerrar">
@@ -39,7 +40,7 @@ export default function ImportarTexto() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={estilos.cuerpo} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={estilos.cuerpo} bottomOffset={24} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => setConsejos((v) => !v)} style={estilos.consejos} accessibilityRole="button" accessibilityState={{ expanded: consejos }}>
           <View style={estilos.filaConsejos}>
             <MaterialCommunityIcons name="lightbulb-on-outline" size={22} color={Marca.primario} />
@@ -65,8 +66,8 @@ export default function ImportarTexto() {
           style={estilos.entrada}
           accessibilityLabel="Texto de la receta"
         />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 

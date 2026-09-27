@@ -26,6 +26,7 @@ import { MaquetaBiblioteca } from '@/components/bienvenida/maqueta-biblioteca';
 import { Etiqueta, FUENTES, Telefono, type Fuente } from '@/components/bienvenida/telefono';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { marcarBienvenidaVista } from '@/lib/preferencias';
+import { useTopes } from '@/lib/cuota';
 
 /**
  * Bienvenida previa al onboarding. ~19 s en cinco actos:
@@ -69,6 +70,7 @@ export default function Bienvenida() {
   const router = useRouter();
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const topes = useTopes();
   const sinMovimiento = useReducedMotion();
 
   // --- valores animados ---------------------------------------------------
@@ -362,10 +364,10 @@ export default function Bienvenida() {
 
       {mostrarBoton ? (
         <Animated.View entering={FadeInDown.duration(550).easing(SUAVE)} style={[estilos.pie, { paddingBottom: insets.bottom + 20 }]}>
-          {/* Lo primero que se dice del precio: que no hay precio */}
+          {/* Lo primero que se dice del precio: cuanto es gratis, sin letra chica */}
           <View style={estilos.gratis}>
             <MaterialIcons name="check-circle" size={17} color={Marca.exito} />
-            <Text style={estilos.textoGratis}>Gratis para siempre · Sin tarjeta</Text>
+            <Text style={estilos.textoGratis}>{topes.gratis} importaciones gratis · Sin tarjeta</Text>
           </View>
           <Pressable
             onPress={() => salir('empezar')}
@@ -521,7 +523,7 @@ const estilos = StyleSheet.create({
   boton: { backgroundColor: Marca.primario, minHeight: 56, borderRadius: Radios.pildora, alignItems: 'center', justifyContent: 'center' },
   textoBoton: { fontFamily: Tipografia.seminegrita, fontSize: 17, color: '#FFFFFF' },
   gratis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  textoGratis: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text },
+  textoGratis: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text, flexShrink: 1, textAlign: 'center' },
   enlace: { alignSelf: 'center', paddingVertical: 4 },
   textoEnlace: { fontFamily: Tipografia.regular, fontSize: 15, color: Colors.light.textSecondary },
   textoEnlaceMarca: { fontFamily: Tipografia.seminegrita, color: Marca.primario },

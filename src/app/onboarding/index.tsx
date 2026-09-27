@@ -184,11 +184,11 @@ export default function Onboarding() {
           <View style={estilos.gratis}>
             <View style={estilos.filaGratis}>
               <MaterialIcons name="check-circle" size={18} color={Marca.primario} />
-              <Text style={estilos.tituloGratis}>Gratis para siempre · Sin tarjeta</Text>
+              <Text style={estilos.tituloGratis}>Empieza gratis · Sin tarjeta</Text>
             </View>
             <Text style={estilos.detalleGratis}>
-              Guarda, escribe y organiza sin límite. Solo importar con IA desde videos e imágenes tiene un tope:{' '}
-              {topes.gratis} en total.
+              Incluye {topes.gratis} importaciones con IA desde videos e imágenes. Guardar, escribir, organizar e importar
+              desde una web o un texto no tienen límite. Para importar más videos, Recetifia+.
             </Text>
           </View>
 

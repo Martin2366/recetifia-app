@@ -6,6 +6,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
 import {
   DefaultTheme,
@@ -117,6 +118,7 @@ export default function RootLayout() {
   const listo = fuentesListas || Boolean(errorFuentes);
 
   return (
+    <KeyboardProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider value={temaNavegacion}>
@@ -141,6 +143,7 @@ export default function RootLayout() {
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </KeyboardProvider>
   );
 }
 

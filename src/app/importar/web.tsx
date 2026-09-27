@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonOnboarding } from '@/components/onboarding/boton';
@@ -69,7 +70,7 @@ export default function ImportarWeb() {
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} bottomOffset={24} keyboardShouldPersistTaps="handled">
         <View style={estilos.heroe}>
           <MaterialCommunityIcons name="web" size={40} color={Marca.primario} />
           <Text style={estilos.titulo}>Encuentra cualquier receta</Text>
@@ -123,7 +124,7 @@ export default function ImportarWeb() {
           </View>
           <Text style={estilos.nota}>Copia el enlace de la receta en el navegador y vuelve a pegarlo aquí.</Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }

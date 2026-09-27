@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Pressable,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonOnboarding } from '@/components/onboarding/boton';
@@ -295,7 +295,7 @@ function Renombrar({ visible, id, actual, alCerrar }: { visible: boolean; id: st
   }
 
   return (
-    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={alCerrar} onShow={() => setNombre(actual)}>
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={alCerrar} onShow={() => setNombre(actual)}>
       <KeyboardAvoidingView behavior="padding" style={estilos.centroModal}>
         <Pressable style={StyleSheet.absoluteFill} onPress={alCerrar} accessibilityLabel="Cerrar">
           <View style={[StyleSheet.absoluteFill, estilos.veloOscuro]} />

@@ -1,7 +1,8 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -84,7 +85,7 @@ export function HojaAgregar({
   if (!montada) return null;
 
   return (
-    <Modal transparent visible statusBarTranslucent animationType="none" onRequestClose={volver}>
+    <Modal transparent visible statusBarTranslucent navigationBarTranslucent animationType="none" onRequestClose={volver}>
       <Animated.View style={[StyleSheet.absoluteFill, estilos.velo, estiloVelo]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={alCerrar} accessibilityLabel="Cerrar" />
       </Animated.View>
