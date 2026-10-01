@@ -61,6 +61,11 @@ describe('textoIngredienteEscalado', () => {
     assert.equal(textoIngredienteEscalado(base, 2, 1), '1 taza harina');
   });
 
+  it('nunca muestra "0 limon": cantidad 0 es "al gusto"', () => {
+    const limon = { raw_text: 'Limón al gusto', quantity: 0, unit: null, name_normalized: 'limón' };
+    assert.equal(textoIngredienteEscalado(limon, 1, 3), 'Limón al gusto');
+  });
+
   it('conserva el texto original cuando no se pudo parsear la cantidad', () => {
     const sinCantidad = { raw_text: 'Sal al gusto', quantity: null, unit: null, name_normalized: 'sal' };
     assert.equal(textoIngredienteEscalado(sinCantidad, 2, 4), 'Sal al gusto');

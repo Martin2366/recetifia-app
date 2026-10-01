@@ -16,7 +16,7 @@ import {
 import { TarjetaNutricion } from '@/components/nutricion';
 import { PantallaVacia } from '@/components/pantalla-vacia';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Marca, Spacing } from '@/constants/theme';
+import { Colors, Marca, Spacing, Tipografia } from '@/constants/theme';
 import { useCuota } from '@/lib/cuota';
 import { textoIngredienteEscalado } from '@/lib/porciones';
 import { itemDesdeIngrediente, useAgregarALista } from '@/lib/lista';
@@ -236,12 +236,18 @@ export default function DetalleReceta() {
           {receta.ingredientes.length === 0 ? (
             <ThemedText style={estilos.tenue}>Esta receta no tiene ingredientes guardados.</ThemedText>
           ) : (
-            receta.ingredientes.map((ing) => (
-              <View key={ing.id} style={estilos.linea}>
-                {ing.emoji ? <ThemedText>{ing.emoji}</ThemedText> : <ThemedText style={estilos.punto}>•</ThemedText>}
-                <ThemedText style={estilos.textoLinea}>
-                  {textoIngredienteEscalado(ing, porcionesBase, porcionesActuales)}
-                </ThemedText>
+            receta.ingredientes.map((ing, k) => (
+              <View key={ing.id}>
+                {/* "Para la salsa", "Para el relleno": titulo al empezar cada grupo */}
+                {ing.group_label && ing.group_label !== receta.ingredientes[k - 1]?.group_label ? (
+                  <ThemedText style={estilos.grupo}>{ing.group_label}</ThemedText>
+                ) : null}
+                <View style={estilos.linea}>
+                  {ing.emoji ? <ThemedText>{ing.emoji}</ThemedText> : <ThemedText style={estilos.punto}>•</ThemedText>}
+                  <ThemedText style={estilos.textoLinea}>
+                    {textoIngredienteEscalado(ing, porcionesBase, porcionesActuales)}
+                  </ThemedText>
+                </View>
               </View>
             ))
           )}
@@ -343,6 +349,7 @@ const estilos = StyleSheet.create({
   ajustado: { opacity: 0.7, marginTop: -Spacing.two },
   seccion: { gap: Spacing.two },
   linea: { flexDirection: 'row', gap: Spacing.two },
+  grupo: { fontFamily: Tipografia.seminegrita, fontSize: 16, marginTop: Spacing.two, marginBottom: Spacing.one },
   punto: { opacity: 0.5 },
   textoLinea: { flex: 1 },
   tachado: { textDecorationLine: 'line-through' },

@@ -47,7 +47,15 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Recetifia usa la cámara para fotografiar recetas de libros o cuadernos y pasarlas a tu biblioteca.",
+          "photosPermission": "Recetifia abre tus fotos para importar recetas desde imágenes.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

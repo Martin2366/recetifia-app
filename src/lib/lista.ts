@@ -61,7 +61,7 @@ export function itemDesdeIngrediente(
   porcionesActuales: number | null
 ): Nuevo {
   const nombre = ing.name_normalized?.trim();
-  const cantidad = ing.quantity != null ? escalarCantidad(ing.quantity, porcionesBase, porcionesActuales) : null;
+  const cantidad = ing.quantity != null && ing.quantity > 0 ? escalarCantidad(ing.quantity, porcionesBase, porcionesActuales) : null;
   // Sin cantidad o sin nombre limpio (ej: "sal y pimienta a gusto"), va el texto original
   const conCantidad = Boolean(nombre) && cantidad != null;
   return {

@@ -11,7 +11,7 @@ export const BOT_UA = 'RecetifiaBot/1.0 (+https://recetifia.app; link preview)';
 export const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
-export type Fuente = 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'pinterest' | 'web';
+export type Fuente = 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'pinterest' | 'web' | 'image';
 
 export async function httpGet(url: string, { timeoutMs = 20000, ua = BOT_UA } = {}) {
   const ctrl = new AbortController();

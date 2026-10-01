@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
 import { supabase } from './supabase';
+import type { FotoReceta } from './fotos';
 import type { BorradorReceta } from './tipos';
 
 /**
@@ -37,6 +38,8 @@ export type Rescate = {
 
 /** La receta tal como la deja el servidor en la cache compartida. */
 export type RecetaImportada = BorradorReceta & {
+  /** Mas platos de la misma publicacion (carrusel con varias recetas): se guardan aparte. */
+  otras?: RecetaImportada[];
   confianza?: 'alta' | 'media' | 'baja';
   motivo?: string;
   blog_url?: string | null;
@@ -52,8 +55,10 @@ export class LimiteAlcanzado extends Error {
 }
 export class EnlaceInvalido extends Error {}
 
-export async function iniciarImportacion(url: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke<{ jobId: string }>('importar', { body: { url } });
+/** Un enlace, o fotos (galeria, camara o compartidas) ya preparadas. */
+export async function iniciarImportacion(entrada: string | FotoReceta[]): Promise<string> {
+  const body = typeof entrada === 'string' ? { url: entrada } : { imagenes: entrada };
+  const { data, error } = await supabase.functions.invoke<{ jobId: string }>('importar', { body });
   if (error) {
     if (error instanceof FunctionsHttpError) {
       const estado = error.context?.status;

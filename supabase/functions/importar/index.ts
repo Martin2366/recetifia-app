@@ -38,7 +38,13 @@ const ENV = {
 // que nos cuesta dinero, importar con IA desde videos e imagenes. Las webs no
 // cuentan: casi siempre traen la receta publicada y salen gratis. Los topes
 // (10 en total gratis, 120 al mes con Plus) viven en public.ajustes.
-const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest'];
+const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest', 'image'];
+
+// Fotos desde la galeria o la camara: hasta 4 (una receta a doble pagina, varias
+// capturas). La app las manda ya comprimidas; esto es solo un tope de seguridad.
+const MAX_FOTOS = 4;
+const MAX_FOTO_BASE64 = 6 * 1024 * 1024;
+type Foto = { data: string; mime: string };
 
 // Freno de gasto: el presupuesto de validacion es de 30 USD al mes. Pasado este
 // tope la importacion no se corta: sigue con lo barato (caption y web) y se
@@ -66,16 +72,19 @@ Deno.serve(async (req) => {
   if (!usuario) return json({ error: 'sesion' }, 401);
 
   const cuerpo = await req.json().catch(() => ({}));
+  const fotos: Foto[] = (Array.isArray(cuerpo?.imagenes) ? cuerpo.imagenes : [])
+    .filter((f: Foto) => typeof f?.data === 'string' && f.data.length > 1000 && f.data.length < MAX_FOTO_BASE64 && String(f?.mime ?? '').startsWith('image/'))
+    .slice(0, MAX_FOTOS);
   const entrada = String(cuerpo?.url ?? '').trim();
   // Lo compartido desde una app suele ser "Mira este reel https://..."
-  const url = urlsEnTexto(entrada)[0] ?? entrada;
-  const fuente = detectarFuente(url);
+  const url = fotos.length ? '' : (urlsEnTexto(entrada)[0] ?? entrada);
+  const fuente: Fuente | null = fotos.length ? 'image' : detectarFuente(url);
   if (!fuente) return json({ error: 'enlace' }, 400);
 
   // El mismo enlace dos veces en dos minutos es un doble toque o un doble
   // aviso de "Compartir": se devuelve el trabajo que ya esta en marcha, sin
   // cobrar otra vez la IA ni gastar otra importacion de la cuota.
-  const { data: reciente } = await admin
+  const { data: reciente } = fotos.length ? { data: null } : await admin
     .from('import_jobs')
     .select('id')
     .eq('user_id', usuario.id)
@@ -96,7 +105,8 @@ Deno.serve(async (req) => {
     else if (cuota && cuota.restantes <= 0) return json({ error: cuota.plus ? 'limite_plus' : 'limite' }, 402);
   }
 
-  const canonica = canonicalizar(url);
+  // Las fotos se reconocen por su contenido: la misma foto dos veces sale de la cache
+  const canonica = fotos.length ? `foto:${await sha256(fotos.map((f) => f.data).join(''))}` : canonicalizar(url);
   const hash = await sha256(canonica);
 
   // Si alguien ya importo este enlace, se reutiliza: coste 0 e instantaneo
@@ -107,7 +117,7 @@ Deno.serve(async (req) => {
       .from('import_jobs')
       .insert({
         user_id: usuario.id,
-        source_url: url,
+        source_url: url || null,
         source_type: fuente,
         status: 'done',
         stage: 'cache',
@@ -124,13 +134,13 @@ Deno.serve(async (req) => {
 
   const { data: job, error } = await admin
     .from('import_jobs')
-    .insert({ user_id: usuario.id, source_url: url, source_type: fuente, status: 'running', stage: 'leyendo' })
+    .insert({ user_id: usuario.id, source_url: url || null, source_type: fuente, status: 'running', stage: 'leyendo' })
     .select('id')
     .single();
   if (error || !job) return json({ error: 'interno' }, 500);
 
   const ahorro = await enModoAhorro(admin);
-  EdgeRuntime.waitUntil(procesar(admin, job.id, url, canonica, hash, fuente, ahorro));
+  EdgeRuntime.waitUntil(procesar(admin, job.id, url, canonica, hash, fuente, ahorro, fotos));
   return json({ jobId: job.id });
 });
 
@@ -151,7 +161,8 @@ async function procesar(
   canonica: string,
   hash: string,
   fuente: Fuente,
-  ahorro: boolean
+  ahorro: boolean,
+  fotos: Foto[] = []
 ) {
   const t0 = Date.now();
   let coste = 0;
@@ -171,14 +182,27 @@ async function procesar(
   // editor con esto en vez de dejar a la persona con las manos vacias
   let contenido: Contenido | null = null;
   let receta: RecetaIa | null = null;
+  // Mas platos en la misma publicacion (carruseles con varias recetas)
+  let otras: RecetaIa[] = [];
 
   try {
-    const c = await obtenerContenido(url, fuente);
+    const c: Contenido = fuente === 'image'
+      ? { titulo: '', autor: '', miniatura: null, texto: '', jsonLd: null, blog: null, via: ['foto'] }
+      : await obtenerContenido(url, fuente);
     contenido = c;
 
     if (ahorro) notas.push('modo ahorro: sin audio ni video');
 
-    if (fuente === 'youtube' && !ahorro) {
+    if (fuente === 'image') {
+      // Foto de un libro, un cuaderno o una captura: Gemini la lee igual que un
+      // carrusel, y si trae varios platos salen por separado
+      await etapa('ordenando');
+      const r = await estructurarImagenes(ENV.gemini, ENV.modelo, fotos, '');
+      sumar(r);
+      receta = r.receta;
+      otras = r.otras;
+      origen = 'foto';
+    } else if (fuente === 'youtube' && !ahorro) {
       await etapa('escuchando');
       const r = await estructurarYoutube(ENV.gemini, ENV.modelo, url, c.texto);
       sumar(r);
@@ -241,7 +265,9 @@ async function procesar(
             const imagenes = await descargarImagenes(a.imagenes);
             if (imagenes.length) {
               await etapa('ordenando');
-              r = await estructurarImagenes(ENV.gemini, ENV.modelo, imagenes, textoBase(c));
+              const ri = await estructurarImagenes(ENV.gemini, ENV.modelo, imagenes, textoBase(c));
+              r = ri;
+              otras = ri.otras;
               origen = 'imagenes';
             } else {
               notas.push('no se pudieron descargar las fotos del carrusel');
@@ -290,36 +316,41 @@ async function procesar(
     }
 
     await etapa('guardando');
-    const foto = await guardarFoto(admin, c.miniatura ?? c.jsonLd?.imagen ?? null, hash);
-    const completa = receta.ingredientes.length > 0 && receta.pasos.length >= 2;
-    const n = receta.nutricion_por_porcion;
-
-    const normalizada = {
-      title: receta.titulo || c.titulo || 'Receta sin título',
-      description: receta.descripcion || null,
-      image_path: foto,
-      servings: receta.porciones || c.jsonLd?.porciones || null,
-      prep_minutes: receta.tiempo_preparacion_min || c.jsonLd?.prep || null,
-      cook_minutes: receta.tiempo_coccion_min || c.jsonLd?.coccion || null,
-      source_type: fuente,
-      source_url: url,
-      source_author: c.autor || c.jsonLd?.autor || null,
-      ingredients: receta.ingredientes.map((i) => ({
-        raw_text: i.texto_original,
-        quantity: i.cantidad ?? null,
-        unit: i.unidad || null,
-        name: i.nombre,
-        group_label: i.grupo || null,
-        emoji: i.emoji || null,
-      })),
-      steps: receta.pasos.map((text) => ({ text })),
-      nutrition: n?.calorias ? n : null,
-      confianza: receta.confianza,
-      motivo: receta.motivo,
-      blog_url: c.blog,
-      origin: origen,
-      quality: completa ? 'complete' : 'partial',
+    const foto =
+      fuente === 'image' ? await guardarFotoSubida(admin, fotos[0], hash) : await guardarFoto(admin, c.miniatura ?? c.jsonLd?.imagen ?? null, hash);
+    const normalizar = (r: RecetaIa) => {
+      const n = r.nutricion_por_porcion;
+      return {
+        title: r.titulo || c.titulo || 'Receta sin título',
+        description: r.descripcion || null,
+        image_path: foto,
+        servings: r.porciones || c.jsonLd?.porciones || null,
+        prep_minutes: r.tiempo_preparacion_min || c.jsonLd?.prep || null,
+        cook_minutes: r.tiempo_coccion_min || c.jsonLd?.coccion || null,
+        source_type: fuente,
+        source_url: url || null,
+        source_author: c.autor || c.jsonLd?.autor || null,
+        ingredients: r.ingredientes.map((i) => ({
+          raw_text: i.texto_original,
+          // "Limon al gusto" llegaba con cantidad 0 y la app mostraba "0 limon"
+          quantity: i.cantidad && i.cantidad > 0 ? i.cantidad : null,
+          unit: i.unidad || null,
+          name: i.nombre,
+          group_label: i.grupo || null,
+          emoji: i.emoji || null,
+        })),
+        steps: r.pasos.map((text) => ({ text })),
+        nutrition: n?.calorias ? n : null,
+        confianza: r.confianza,
+        motivo: r.motivo,
+        blog_url: c.blog,
+        origin: origen,
+        quality: r.ingredientes.length > 0 && r.pasos.length >= 2 ? 'complete' : 'partial',
+      };
     };
+
+    // La app ofrece guardar los demas platos como recetas aparte
+    const normalizada = { ...normalizar(receta!), otras: otras.map(normalizar) };
 
     const { data: ext, error } = await admin
       .from('extractions')
@@ -419,6 +450,20 @@ function textoBase(c: Contenido): string {
 }
 
 /** Copia la foto a Storage: las URLs de Instagram y TikTok caducan en pocos dias. */
+/** La primera foto que subio la persona queda como foto de la receta (se cambia en el editor). */
+async function guardarFotoSubida(admin: SupabaseClient, f: Foto | undefined, hash: string): Promise<string | null> {
+  if (!f) return null;
+  try {
+    const bytes = Uint8Array.from(atob(f.data), (ch) => ch.charCodeAt(0));
+    const ruta = `importadas/${hash}.${f.mime.includes('png') ? 'png' : f.mime.includes('webp') ? 'webp' : 'jpg'}`;
+    const { error } = await admin.storage.from('recetas').upload(ruta, bytes, { contentType: f.mime, upsert: true });
+    if (error) return null;
+    return admin.storage.from('recetas').getPublicUrl(ruta).data.publicUrl;
+  } catch {
+    return null;
+  }
+}
+
 async function guardarFoto(admin: SupabaseClient, url: string | null, hash: string): Promise<string | null> {
   if (!url) return null;
   try {

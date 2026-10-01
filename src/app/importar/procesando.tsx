@@ -8,10 +8,12 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Escaner } from '@/components/importar/escaner';
+import { VariasRecetas } from '@/components/importar/varias-recetas';
 import { VistaPrevia } from '@/components/importar/vista-previa';
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Tipografia } from '@/constants/theme';
 import { dejarBorrador } from '@/lib/borrador';
+import { tomarFotosPendientes } from '@/lib/fotos';
 import { agregarAColeccion, useColecciones } from '@/lib/colecciones';
 import { LIMITES } from '@/lib/compras';
 import { claveCuota, useCuota } from '@/lib/cuota';
@@ -37,7 +39,9 @@ export default function Procesando() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const { url } = useLocalSearchParams<{ url: string }>();
+  const { url, fotos } = useLocalSearchParams<{ url?: string; fotos?: string }>();
+  // Las fotos llegan por memoria (no caben en la URL); se guardan para reintentar
+  const fotosRef = useRef(fotos ? tomarFotosPendientes() : null);
 
   const [intento, setIntento] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -53,9 +57,10 @@ export default function Procesando() {
 
   useEffect(() => {
     // Una sola llamada por intento, aunque React monte el efecto dos veces
-    if (!url || iniciado.current === intento) return;
+    const entrada = fotosRef.current?.length ? fotosRef.current : url;
+    if (!entrada || iniciado.current === intento) return;
     iniciado.current = intento;
-    iniciarImportacion(url)
+    iniciarImportacion(entrada)
       .then(setJobId)
       .catch((e) =>
         setErrorInicio(
@@ -116,7 +121,8 @@ export default function Procesando() {
     if (!receta) return;
     setGuardando(true);
     try {
-      const { id, enCola } = await crear.mutateAsync({ ...receta, status: receta.quality === 'partial' ? 'needs_review' : 'complete' });
+      const { otras: _otras, ...sola } = receta;
+      const { id, enCola } = await crear.mutateAsync({ ...sola, status: receta.quality === 'partial' ? 'needs_review' : 'complete' });
       if (enCola) {
         // Sin conexion: la receta ya esta a salvo en el telefono y se sube sola
         Alert.alert(
@@ -141,8 +147,41 @@ export default function Procesando() {
 
   function editar() {
     if (!receta) return;
-    dejarBorrador(receta);
+    const { otras: _otras, ...sola } = receta;
+    dejarBorrador(sola);
     router.replace('/receta/nueva');
+  }
+
+  // Publicacion con varios platos: cada uno se guarda como receta aparte
+  async function guardarVarias(elegidas: RecetaImportada[], coleccionId: string | null) {
+    setGuardando(true);
+    let guardadas = 0;
+    let enCola = 0;
+    try {
+      for (const r of elegidas) {
+        const { otras: _otras, ...sola } = r;
+        const g = await crear.mutateAsync({ ...sola, status: sola.quality === 'partial' ? 'needs_review' : 'complete' });
+        guardadas++;
+        if (g.enCola) enCola++;
+        else if (coleccionId) await agregarAColeccion(coleccionId, g.id).catch(() => {});
+      }
+      qc.invalidateQueries({ queryKey: ['colecciones'] });
+      if (enCola) {
+        Alert.alert('Guardadas en tu teléfono', 'No hay conexión ahora. Las recetas se suben solas cuando vuelva internet.');
+        router.replace('/(tabs)');
+      } else if (coleccionId) {
+        router.replace({ pathname: '/coleccion/[id]', params: { id: coleccionId } });
+      } else {
+        router.replace('/(tabs)');
+      }
+      setTimeout(pedirResenaSiToca, 1500);
+    } catch (e) {
+      Alert.alert(
+        guardadas ? `Se guardaron ${guardadas} de ${elegidas.length}` : 'No pudimos guardarlas',
+        e instanceof Error ? e.message : 'Inténtalo de nuevo.'
+      );
+      setGuardando(false);
+    }
   }
 
   const fallo = errorInicio === 'enlace' || errorInicio === 'red' || t?.status === 'failed';
@@ -163,7 +202,15 @@ export default function Procesando() {
         </Pressable>
       </View>
 
-      {receta ? (
+      {receta?.otras?.length ? (
+        <VariasRecetas
+          recetas={[receta, ...receta.otras]}
+          colecciones={colecciones.data ?? []}
+          guardando={guardando}
+          alGuardar={guardarVarias}
+          alCancelar={() => router.back()}
+        />
+      ) : receta ? (
         <VistaPrevia
           receta={receta}
           plus={cuota.data?.plus ?? false}

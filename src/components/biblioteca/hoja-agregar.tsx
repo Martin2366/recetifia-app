@@ -10,6 +10,7 @@ import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useCrearColeccion } from '@/lib/colecciones';
 import type { Cuota } from '@/lib/cuota';
+import { MAX_FOTOS } from '@/lib/fotos';
 
 /**
  * Hoja inferior del boton +. Navega entre vistas dentro de la misma hoja, como
@@ -20,7 +21,7 @@ const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 type Icono = keyof typeof MaterialCommunityIcons.glyphMap;
 type Vista = 'menu' | 'receta' | 'foto' | 'redes' | 'coleccion';
 
-export type DestinoHoja = 'texto' | 'web' | 'cero' | 'plus';
+export type DestinoHoja = 'texto' | 'web' | 'cero' | 'plus' | 'galeria' | 'camara';
 
 export function HojaAgregar({
   visible,
@@ -136,9 +137,12 @@ export function HojaAgregar({
           {vista === 'foto' ? (
             <View style={estilos.columna}>
               <Cabecera titulo="Desde una foto" alVolver={volver} />
-              <Fila icono="image-multiple-outline" titulo="Elegir de la galería" alPulsar={pronto} />
-              <Fila icono="camera-outline" titulo="Tomar una foto" alPulsar={pronto} />
-              <Text style={estilos.nota}>Ideal para recetas de cuadernos, libros o una captura.</Text>
+              <Fila icono="image-multiple-outline" titulo="Elegir de la galería" detalle={`Hasta ${MAX_FOTOS} fotos de la misma receta`} alPulsar={() => alElegir('galeria')} />
+              <Fila icono="camera-outline" titulo="Tomar una foto" detalle="De un libro, un cuaderno o una pantalla" alPulsar={() => alElegir('camara')} />
+              <Text style={estilos.nota}>
+                Ideal para recetas de cuadernos, libros o capturas. También puedes compartir una captura a Recetifia desde tu galería.
+                Cuenta como una importación.
+              </Text>
             </View>
           ) : null}
 
@@ -164,10 +168,6 @@ export function HojaAgregar({
       </KeyboardAvoidingView>
     </Modal>
   );
-}
-
-function pronto() {
-  Alert.alert('Muy pronto', 'Estamos terminando la importación desde fotos. Mientras tanto, puedes pegar el texto de la receta.');
 }
 
 /** Colecciones sin tope: organizar tus recetas nunca se cobra. */

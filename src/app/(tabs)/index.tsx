@@ -28,6 +28,7 @@ import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { useColecciones } from '@/lib/colecciones';
 import { useCuota } from '@/lib/cuota';
+import { dejarFotos, elegirDeGaleria, prepararFotos, tomarFoto } from '@/lib/fotos';
 import { useLista } from '@/lib/lista';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
 
@@ -76,11 +77,24 @@ export default function Biblioteca() {
   const lista = (recetas.data ?? []).filter((r) => !soloFavoritas || r.is_favorite);
   const bibliotecaVacia = !recetas.isLoading && !busqueda.trim() && (recetas.data ?? []).length === 0;
 
+  async function importarFoto(origen: 'galeria' | 'camara') {
+    const uris = origen === 'galeria' ? await elegirDeGaleria() : await tomarFoto();
+    if (!uris?.length) return;
+    const fotos = await prepararFotos(uris);
+    if (!fotos.length) {
+      Alert.alert('No pudimos abrir la foto', 'Prueba con otra imagen o toma la foto de nuevo.');
+      return;
+    }
+    dejarFotos(fotos);
+    router.push({ pathname: '/importar/procesando', params: { fotos: '1' } });
+  }
+
   function elegir(destino: DestinoHoja) {
     setHoja(false);
     // Deja cerrar la hoja antes de navegar, para que no se vea el salto
     setTimeout(() => {
-      if (destino === 'texto') router.push('/importar/texto');
+      if (destino === 'galeria' || destino === 'camara') importarFoto(destino);
+      else if (destino === 'texto') router.push('/importar/texto');
       else if (destino === 'web') router.push('/importar/web');
       else if (destino === 'cero') router.push('/receta/nueva');
       else router.push('/plus');

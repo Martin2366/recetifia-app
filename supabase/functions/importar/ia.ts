@@ -81,7 +81,12 @@ Reglas innegociables:
 8. confianza = "alta" solo si hay ingredientes con cantidades Y pasos claros. "media" si falta parte. "baja" si casi no hay información o no es una receta.
 9. Si el contenido no es una receta de cocina, devuelve confianza "baja" y listas vacías.`;
 
-async function llamar(apiKey: string, modelo: string, partes: unknown[]): Promise<{ receta: RecetaIa; tokensEntrada: number; tokensSalida: number }> {
+async function llamar<T = RecetaIa>(
+  apiKey: string,
+  modelo: string,
+  partes: unknown[],
+  esquema: unknown = ESQUEMA
+): Promise<{ receta: T; tokensEntrada: number; tokensSalida: number }> {
   const res = await fetch(`${BASE}/models/${modelo}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -89,7 +94,7 @@ async function llamar(apiKey: string, modelo: string, partes: unknown[]): Promis
       contents: [{ role: 'user', parts: partes }],
       // responseJsonSchema y no responseSchema: con este ultimo el modelo cortaba la
       // respuesta en el primer ingrediente en 5 de cada 6 intentos (medido el 1 oct)
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', responseJsonSchema: ESQUEMA },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', responseJsonSchema: esquema },
     }),
   });
   const j = await res.json().catch(() => null);
@@ -98,7 +103,7 @@ async function llamar(apiKey: string, modelo: string, partes: unknown[]): Promis
   const cand = j?.candidates?.[0];
   if (cand?.finishReason && cand.finishReason !== 'STOP') throw new Error(`gemini corto la respuesta: ${cand.finishReason}`);
   const crudo = cand?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-  let receta: RecetaIa;
+  let receta: T;
   try {
     receta = JSON.parse(crudo);
   } catch {
@@ -245,16 +250,39 @@ export async function estructurarImagenes(apiKey: string, modelo: string, imagen
     `[Texto de las ${imagenes.length} fotos de la publicación, en orden]\n${transcripcion}`,
     '---',
     'Cómo leer las fotos: si el armado aparece como una suma ("ingrediente A + ingrediente B + aliño = plato"), cada sumando es un ingrediente con su cantidad tal como está escrita, y los pasos son el armado que se deduce directamente de la suma (combinar, aliñar, servir), sin agregar ingredientes ni cantidades. Los tips van como último paso de su receta.',
-    'Si hay VARIAS recetas distintas, devuélvelas TODAS juntas en una sola: título que describa la colección (ej: "6 cenas altas en proteína"); el campo "grupo" es OBLIGATORIO en TODOS los ingredientes y lleva el nombre de la receta a la que pertenece (ej: grupo "Tártara de salmón"), así la persona ve los ingredientes separados por receta; y al menos un paso por receta que empiece con su nombre ("Ensalada mediterránea de atún: ..."). porciones = cantidad de recetas.',
   ]
     .filter(Boolean)
     .join('\n\n');
-  const r = await estructurar(apiKey, modelo, texto);
+  const r = await estructurarVarias(apiKey, modelo, texto);
   return {
     ...r,
     tokensEntrada: r.tokensEntrada + (u.promptTokenCount ?? 0),
     tokensSalida: r.tokensSalida + (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0),
   };
+}
+
+const ESQUEMA_VARIAS = {
+  type: 'object',
+  properties: { recetas: { type: 'array', items: ESQUEMA, description: 'Una entrada por cada plato distinto, en el orden de la publicación' } },
+  required: ['recetas'],
+};
+
+/**
+ * Para publicaciones que pueden traer varios platos (carruseles, "6 ideas de
+ * cena..."): una receta por plato, para guardarlas por separado. La primera es
+ * la principal; si solo hay un plato, `otras` va vacio.
+ */
+export async function estructurarVarias(apiKey: string, modelo: string, texto: string) {
+  const prompt = [
+    INSTRUCCIONES,
+    'La publicación puede traer UNA o VARIAS recetas distintas. Devuelve en "recetas" una entrada por cada plato distinto, en el orden en que aparecen, cada una completa con sus propios ingredientes, pasos y porciones (si la fuente no las dice, estima cuántas rinde). No mezcles ingredientes de un plato con otro. Si es un solo plato, devuelve una sola entrada.',
+    '---',
+    texto.slice(0, 30000),
+  ].join('\n');
+  const r = await llamar<{ recetas: RecetaIa[] }>(apiKey, modelo, [{ text: prompt }], ESQUEMA_VARIAS);
+  const recetas = (r.receta.recetas ?? []).filter((x) => x.ingredientes?.length || x.pasos?.length);
+  if (!recetas.length) throw new Error('no encontramos una receta en las fotos');
+  return { receta: recetas[0], otras: recetas.slice(1), tokensEntrada: r.tokensEntrada, tokensSalida: r.tokensSalida };
 }
 
 

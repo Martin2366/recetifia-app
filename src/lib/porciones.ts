@@ -74,7 +74,8 @@ export function textoIngredienteEscalado(
   porcionesOriginales: number | null | undefined,
   porcionesDeseadas: number | null | undefined
 ): string {
-  if (ingrediente.quantity == null) return ingrediente.raw_text;
+  // Cantidad 0 = "al gusto" mal leido por la IA: nunca mostrar "0 limon"
+  if (ingrediente.quantity == null || ingrediente.quantity <= 0) return ingrediente.raw_text;
 
   const escalada = escalarCantidad(ingrediente.quantity, porcionesOriginales, porcionesDeseadas);
   const cantidad = formatearCantidad(escalada, ingrediente.unit);
