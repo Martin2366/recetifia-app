@@ -1,9 +1,11 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useGuia, useObjetivoGuia } from '@/components/guia/guia';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { itemAMano, textoItem, useAgregarALista, useBorrarDeLista, useLista, useMarcarItem, type ItemLista } from '@/lib/lista';
 import { PASILLOS } from '@/lib/pasillos';
@@ -22,6 +24,21 @@ export default function Lista() {
   const marcar = useMarcarItem();
   const borrar = useBorrarDeLista();
   const [texto, setTexto] = useState('');
+  const guia = useGuia();
+  const refAgregar = useObjetivoGuia('lista-agregar');
+  const refVacia = useObjetivoGuia('lista-vacia');
+  const refPasillo = useObjetivoGuia('lista-pasillo');
+  const refVaciar = useObjetivoGuia('lista-vaciar');
+
+  // La primera vez que se abre la lista (ya cargada, para medir lo que hay)
+  const cargada = !lista.isLoading;
+  useFocusEffect(
+    useCallback(() => {
+      if (!cargada) return;
+      const t = setTimeout(() => guia.iniciar(false, 'lista'), 600);
+      return () => clearTimeout(t);
+    }, [cargada, guia])
+  );
 
   const items = lista.data ?? [];
   const pendientes = items.filter((i) => !i.is_checked);
@@ -60,13 +77,13 @@ export default function Lista() {
           Lista de compras
         </Text>
         {items.length ? (
-          <Pressable onPress={vaciar} hitSlop={10} accessibilityRole="button">
+          <Pressable ref={refVaciar} onPress={vaciar} hitSlop={10} accessibilityRole="button">
             <Text style={estilos.vaciar}>Vaciar</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <View style={estilos.entrada}>
+      <View ref={refAgregar} collapsable={false} style={estilos.entrada}>
         <TextInput
           value={texto}
           onChangeText={setTexto}
@@ -102,20 +119,23 @@ export default function Lista() {
         </View>
       ) : !items.length ? (
         <View style={estilos.centro}>
-          <Text style={estilos.emojiVacio}>🛒</Text>
-          <Text style={estilos.tituloVacio}>Tu lista está vacía</Text>
-          <Text style={estilos.textoVacio}>
-            Abre una receta y toca «Agregar a la lista»: sus ingredientes llegan aquí, ordenados por pasillo. También puedes
-            escribir lo que quieras arriba.
-          </Text>
+          {/* El foco de la guia va al mensaje, no a toda la pantalla vacia */}
+          <View ref={refVacia} collapsable={false} style={estilos.mensajeVacio}>
+            <Text style={estilos.emojiVacio}>🛒</Text>
+            <Text style={estilos.tituloVacio}>Tu lista está vacía</Text>
+            <Text style={estilos.textoVacio}>
+              Abre una receta y toca «Agregar a la lista»: sus ingredientes llegan aquí, ordenados por pasillo. También puedes
+              escribir lo que quieras arriba.
+            </Text>
+          </View>
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={[estilos.contenido, { paddingBottom: insets.bottom + 130 }]}
           keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={lista.isRefetching} onRefresh={lista.refetch} colors={[Marca.primario]} />}>
-          {secciones.map((s) => (
-            <View key={s.id} style={estilos.seccion}>
+          {secciones.map((s, k) => (
+            <View key={s.id} ref={k === 0 ? refPasillo : undefined} collapsable={false} style={estilos.seccion}>
               <Text style={estilos.tituloSeccion}>
                 {s.emoji}  {s.nombre}
               </Text>
@@ -200,6 +220,7 @@ const estilos = StyleSheet.create({
   textoMarcado: { textDecorationLine: 'line-through', color: Colors.light.textTenue },
 
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 32, paddingBottom: 120 },
+  mensajeVacio: { alignItems: 'center', gap: 8 },
   emojiVacio: { fontSize: 52 },
   tituloVacio: { fontFamily: Tipografia.display, fontSize: 24, textAlign: 'center', color: Colors.light.text },
   textoVacio: { fontFamily: Tipografia.regular, fontSize: 15, lineHeight: 22, textAlign: 'center', color: Colors.light.textSecondary },

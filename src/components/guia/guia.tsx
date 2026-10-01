@@ -21,25 +21,50 @@ import { LIMITES } from '@/lib/compras';
  * del hueco y un anillo, animando solo posicion y opacidad en el hilo de UI.
  */
 
-export type ObjetivoGuia = 'mas' | 'cuota' | 'colecciones' | 'lista' | 'perfil';
+export type ObjetivoGuia =
+  | 'mas'
+  | 'cuota'
+  | 'colecciones'
+  | 'lista'
+  | 'perfil'
+  | 'lista-agregar'
+  | 'lista-vacia'
+  | 'lista-pasillo'
+  | 'lista-vaciar';
 
-const PASOS: { clave: ObjetivoGuia; titulo: string; texto: string }[] = [
-  { clave: 'mas', titulo: 'Todo empieza aquí', texto: 'Con el + agregas recetas: desde un reel, pegando el texto o escribiéndola tú.' },
+type Paso = { clave: ObjetivoGuia; titulo: string; texto: string };
+
+/** Recorridos: el de la biblioteca (la primera vez que se entra) y el de la lista de compras. */
+export type Recorrido = 'inicio' | 'lista';
+
+const PASOS: Paso[] = [
+  { clave: 'mas', titulo: 'Todo empieza aquí', texto: 'Con el + agregas recetas: desde un reel, una foto, una web, pegando el texto o escribiéndola tú.' },
   { clave: 'cuota', titulo: 'Tus importaciones', texto: `Tienes ${LIMITES.importacionesGratis} importaciones gratis de videos. Guardar, escribir y organizar, sin límite.` },
   { clave: 'colecciones', titulo: 'Colecciones', texto: 'Agrupa tus recetas en carpetas: postres, almuerzos rápidos, lo de la abuela.' },
   { clave: 'lista', titulo: 'Lista de compras', texto: 'Desde cualquier receta, sus ingredientes llegan aquí, ordenados por pasillo.' },
   { clave: 'perfil', titulo: 'Tu perfil', texto: 'Respalda tus recetas con Google y no las pierdes si cambias de teléfono.' },
 ];
 
-const CLAVE_VISTA = 'recetifia:guia-vista';
+/** Solo se muestran los pasos cuyo objetivo esta en pantalla: con la lista vacia, "lista-vacia"; con productos, los demas. */
+const PASOS_LISTA: Paso[] = [
+  { clave: 'lista-agregar', titulo: 'Escribe lo que falte', texto: 'Agrega a mano lo que no viene en una receta: pan, detergente, lo que sea.' },
+  { clave: 'lista-vacia', titulo: 'Se llena sola', texto: 'Abre una receta y toca «Agregar a la lista»: sus ingredientes llegan aquí, ya sumados y ordenados por pasillo.' },
+  { clave: 'lista-pasillo', titulo: 'Ordenada por pasillo', texto: 'Todo se agrupa como en el supermercado, y si dos recetas llevan cebolla, se suma. Toca un producto al echarlo al carro.' },
+  { clave: 'lista-vaciar', titulo: 'Compra terminada', texto: 'Lo marcado baja a «En el carro». Al terminar, vacía la lista de un toque.' },
+];
+
+const RECORRIDOS: Record<Recorrido, { pasos: Paso[]; clave: string; final: string }> = {
+  inicio: { pasos: PASOS, clave: 'recetifia:guia-vista', final: '¡A cocinar!' },
+  lista: { pasos: PASOS_LISTA, clave: 'recetifia:guia-lista', final: '¡A comprar!' },
+};
 const MARGEN_FOCO = 8;
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 
 type Rect = { x: number; y: number; w: number; h: number };
 type Ctx = {
   registrar: (clave: ObjetivoGuia, vista: View | null) => void;
-  /** Arranca la guia si nunca se vio (o siempre, con forzar). */
-  iniciar: (forzar?: boolean) => void;
+  /** Arranca un recorrido si nunca se vio (o siempre, con forzar). */
+  iniciar: (forzar?: boolean, recorrido?: Recorrido) => void;
   activa: boolean;
 };
 
@@ -60,7 +85,8 @@ export function useGuia() {
 export function GuiaProvider({ children }: { children: ReactNode }) {
   const objetivos = useRef(new Map<ObjetivoGuia, View>());
   const raiz = useRef<View>(null);
-  const [pasos, setPasos] = useState<typeof PASOS | null>(null);
+  const [pasos, setPasos] = useState<Paso[] | null>(null);
+  const [recorrido, setRecorrido] = useState<Recorrido>('inicio');
   const [indice, setIndice] = useState(0);
   const [foco, setFoco] = useState<Rect | null>(null);
   const { width: W, height: H } = useWindowDimensions();
@@ -70,17 +96,18 @@ export function GuiaProvider({ children }: { children: ReactNode }) {
     else objetivos.current.delete(clave);
   }, []);
 
-  const iniciar = useCallback(async (forzar = false) => {
+  const iniciar = useCallback(async (forzar = false, cual: Recorrido = 'inicio') => {
     if (!forzar) {
       try {
-        if ((await AsyncStorage.getItem(CLAVE_VISTA)) === '1') return;
+        if ((await AsyncStorage.getItem(RECORRIDOS[cual].clave)) === '1') return;
       } catch {
         // Sin almacenamiento: se muestra, que es lo seguro para alguien nuevo
       }
     }
     // Solo los pasos cuyo objetivo esta en pantalla (el contador puede no estar)
-    const disponibles = PASOS.filter((p) => objetivos.current.has(p.clave));
+    const disponibles = RECORRIDOS[cual].pasos.filter((p) => objetivos.current.has(p.clave));
     if (!disponibles.length) return;
+    setRecorrido(cual);
     setIndice(0);
     setFoco(null);
     setPasos(disponibles);
@@ -88,8 +115,8 @@ export function GuiaProvider({ children }: { children: ReactNode }) {
 
   const terminar = useCallback(() => {
     setPasos(null);
-    AsyncStorage.setItem(CLAVE_VISTA, '1').catch(() => {});
-  }, []);
+    AsyncStorage.setItem(RECORRIDOS[recorrido].clave, '1').catch(() => {});
+  }, [recorrido]);
 
   // Mide el objetivo del paso actual, relativo a esta capa
   useEffect(() => {
@@ -133,6 +160,7 @@ export function GuiaProvider({ children }: { children: ReactNode }) {
             numero={indice + 1}
             total={pasos.length}
             alto={H}
+            final={RECORRIDOS[recorrido].final}
             alSiguiente={siguiente}
             alSaltar={terminar}
           />
@@ -148,14 +176,16 @@ function Capa({
   numero,
   total,
   alto,
+  final,
   alSiguiente,
   alSaltar,
 }: {
   foco: Rect | null;
-  paso: (typeof PASOS)[number];
+  paso: Paso;
   numero: number;
   total: number;
   alto: number;
+  final: string;
   alSiguiente: () => void;
   alSaltar: () => void;
 }) {
@@ -237,7 +267,7 @@ function Capa({
             onPress={alSiguiente}
             accessibilityRole="button"
             style={({ pressed }) => [estilos.boton, pressed && { opacity: 0.85 }]}>
-            <Text style={estilos.textoBoton}>{numero < total ? 'Siguiente' : '¡A cocinar!'}</Text>
+            <Text style={estilos.textoBoton}>{numero < total ? 'Siguiente' : final}</Text>
           </Pressable>
         </View>
       </Animated.View>

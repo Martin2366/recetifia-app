@@ -12,6 +12,8 @@ import { useCrearColeccion } from '@/lib/colecciones';
 import type { Cuota } from '@/lib/cuota';
 import { MAX_FOTOS } from '@/lib/fotos';
 
+import { TourImportar, tourImportarPendiente, type CaminoImportar } from './tour-importar';
+
 /**
  * Hoja inferior del boton +. Navega entre vistas dentro de la misma hoja, como
  * la referencia: menu → anadir receta → foto, redes o coleccion.
@@ -19,7 +21,7 @@ import { MAX_FOTOS } from '@/lib/fotos';
 
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 type Icono = keyof typeof MaterialCommunityIcons.glyphMap;
-type Vista = 'menu' | 'receta' | 'foto' | 'redes' | 'coleccion';
+type Vista = 'menu' | 'receta' | 'foto' | 'redes' | 'coleccion' | 'tour';
 
 export type DestinoHoja = 'texto' | 'web' | 'cero' | 'plus' | 'galeria' | 'camara';
 
@@ -59,9 +61,19 @@ export function HojaAgregar({
     setVista(v);
   }
 
+  // La primera vez, antes de las opciones, el minitour de como importar
+  async function abrirAnadir() {
+    ir((await tourImportarPendiente()) ? 'tour' : 'receta');
+  }
+
+  function probar(c: CaminoImportar) {
+    if (c === 'redes' || c === 'foto') ir(c);
+    else alElegir(c);
+  }
+
   function volver() {
     if (vista === 'menu') alCerrar();
-    else if (vista === 'foto' || vista === 'redes') ir('receta');
+    else if (vista === 'foto' || vista === 'redes' || vista === 'tour') ir('receta');
     else ir('menu');
   }
 
@@ -98,7 +110,7 @@ export function HojaAgregar({
         <Animated.View style={estiloVista}>
           {vista === 'menu' ? (
             <View style={estilos.columna}>
-              <Fila icono="file-document-outline" titulo="Añadir una receta" detalle="Impórtala desde cualquier lado" alPulsar={() => ir('receta')} />
+              <Fila icono="file-document-outline" titulo="Añadir una receta" detalle="Impórtala desde cualquier lado" alPulsar={abrirAnadir} />
               <Fila
                 icono="bookmark-multiple-outline"
                 titulo="Crear una colección"
@@ -131,8 +143,13 @@ export function HojaAgregar({
                   Texto, web y a mano: sin límite.
                 </Text>
               ) : null}
+              <Pressable onPress={() => ir('tour')} hitSlop={8} style={estilos.enlace} accessibilityRole="button">
+                <Text style={estilos.textoEnlace}>¿Cómo funciona cada una?</Text>
+              </Pressable>
             </View>
           ) : null}
+
+          {vista === 'tour' ? <TourImportar alProbar={probar} alTerminar={() => ir('receta')} /> : null}
 
           {vista === 'foto' ? (
             <View style={estilos.columna}>
