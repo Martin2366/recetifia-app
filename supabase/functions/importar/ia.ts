@@ -87,7 +87,9 @@ async function llamar(apiKey: string, modelo: string, partes: unknown[]): Promis
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: partes }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', responseSchema: ESQUEMA },
+      // responseJsonSchema y no responseSchema: con este ultimo el modelo cortaba la
+      // respuesta en el primer ingrediente en 5 de cada 6 intentos (medido el 1 oct)
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', responseJsonSchema: ESQUEMA },
     }),
   });
   const j = await res.json().catch(() => null);
@@ -103,7 +105,8 @@ async function llamar(apiKey: string, modelo: string, partes: unknown[]): Promis
     throw new Error('gemini no devolvio JSON valido');
   }
   const u = j.usageMetadata ?? {};
-  return { receta, tokensEntrada: u.promptTokenCount ?? 0, tokensSalida: u.candidatesTokenCount ?? 0 };
+  // El razonamiento interno (thoughts) se cobra como salida
+  return { receta, tokensEntrada: u.promptTokenCount ?? 0, tokensSalida: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) };
 }
 
 export function estructurar(
@@ -179,6 +182,81 @@ export function estructurarVideo(apiKey: string, modelo: string, video: { uri: s
     .join('\n');
   return llamar(apiKey, modelo, [{ text: prompt }, { fileData: { fileUri: video.uri, mimeType: video.mime } }]);
 }
+
+/** Hasta 10 fotos por carrusel (el maximo de Instagram) y 8 MB cada una. */
+const MAX_IMAGENES = 10;
+const MAX_IMAGEN = 8 * 1024 * 1024;
+
+/** Descarga las fotos y las deja listas para mandarlas a Gemini dentro de la peticion. */
+export async function descargarImagenes(urls: string[]): Promise<{ data: string; mime: string }[]> {
+  const resultados = await Promise.all(
+    urls.slice(0, MAX_IMAGENES).map(async (u) => {
+      try {
+        const res = await fetch(u, { headers: { 'user-agent': 'RecetifiaBot/1.0' } });
+        if (!res.ok) return null;
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (bytes.byteLength < 2000 || bytes.byteLength > MAX_IMAGEN) return null;
+        const mime = (res.headers.get('content-type') ?? 'image/jpeg').split(';')[0];
+        if (!mime.startsWith('image/')) return null;
+        let binario = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) binario += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return { data: btoa(binario), mime };
+      } catch {
+        return null;
+      }
+    })
+  );
+  return resultados.filter((r): r is { data: string; mime: string } => r !== null);
+}
+
+/**
+ * Gemini lee las fotos de un carrusel en dos pasos: primero transcribe lo que
+ * dice cada imagen y despues ordena ese texto como cualquier caption. Pedir las
+ * dos cosas a la vez (imagenes + esquema JSON) cortaba la respuesta en el
+ * primer ingrediente.
+ */
+export async function estructurarImagenes(apiKey: string, modelo: string, imagenes: { data: string; mime: string }[], caption: string) {
+  const res = await fetch(`${BASE}/models/${modelo}:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: 'Son las fotos de una publicación de recetas, en orden. Transcribe TODO el texto de cada imagen, imagen por imagen, sin resumir: títulos, ingredientes con sus cantidades, pasos, porciones y tips. Si una imagen muestra el armado como una suma ("A + B + C = plato"), conserva los signos + y =. Si una imagen no tiene texto útil, describe en una línea qué muestra.',
+            },
+            ...imagenes.map((i) => ({ inlineData: { mimeType: i.mime, data: i.data } })),
+          ],
+        },
+      ],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+    }),
+  });
+  const j = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(j?.error?.message || `gemini HTTP ${res.status}`);
+  const transcripcion: string = j?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
+  if (transcripcion.trim().length < 40) throw new Error('las fotos no traen texto de receta');
+  const u = j.usageMetadata ?? {};
+
+  const texto = [
+    caption ? `Texto de la publicación:\n${caption.slice(0, 8000)}` : '',
+    `[Texto de las ${imagenes.length} fotos de la publicación, en orden]\n${transcripcion}`,
+    '---',
+    'Cómo leer las fotos: si el armado aparece como una suma ("ingrediente A + ingrediente B + aliño = plato"), cada sumando es un ingrediente con su cantidad tal como está escrita, y los pasos son el armado que se deduce directamente de la suma (combinar, aliñar, servir), sin agregar ingredientes ni cantidades. Los tips van como último paso de su receta.',
+    'Si hay VARIAS recetas distintas, devuélvelas TODAS juntas en una sola: título que describa la colección (ej: "6 cenas altas en proteína"); el campo "grupo" es OBLIGATORIO en TODOS los ingredientes y lleva el nombre de la receta a la que pertenece (ej: grupo "Tártara de salmón"), así la persona ve los ingredientes separados por receta; y al menos un paso por receta que empiece con su nombre ("Ensalada mediterránea de atún: ..."). porciones = cantidad de recetas.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+  const r = await estructurar(apiKey, modelo, texto);
+  return {
+    ...r,
+    tokensEntrada: r.tokensEntrada + (u.promptTokenCount ?? 0),
+    tokensSalida: r.tokensSalida + (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0),
+  };
+}
+
 
 /** Gemini acepta una URL de YouTube y escucha el video por su cuenta. */
 export function estructurarYoutube(apiKey: string, modelo: string, url: string, descripcion: string) {

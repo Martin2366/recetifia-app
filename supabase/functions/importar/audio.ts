@@ -15,6 +15,8 @@ type DatosApify = {
   miniatura: string | null;
   autor: string;
   subtitulos: { language?: string; downloadLink?: string }[];
+  /** Fotos de un carrusel: muchas recetas van escritas dentro de las imagenes. */
+  imagenes: string[];
 };
 
 // deno-lint-ignore no-explicit-any
@@ -30,6 +32,14 @@ const ACTORES: Partial<Record<Fuente, { id: string; entrada: (url: string) => un
       miniatura: it.displayUrl || null,
       autor: it.ownerUsername ? `@${it.ownerUsername}` : '',
       subtitulos: [],
+      // Carrusel ("Sidecar"): las fotos en orden. Una foto sola tambien cuenta.
+      imagenes: it.videoUrl
+        ? []
+        : it.images?.length
+          ? it.images
+          : (it.childPosts ?? []).filter((p: Item) => p.type === 'Image' && p.displayUrl).map((p: Item) => p.displayUrl).concat(
+              !it.childPosts?.length && it.displayUrl ? [it.displayUrl] : []
+            ),
     }),
   },
   tiktok: {
@@ -49,6 +59,7 @@ const ACTORES: Partial<Record<Fuente, { id: string; entrada: (url: string) => un
       miniatura: it.videoMeta?.coverUrl || null,
       autor: it.authorMeta?.name ? `@${it.authorMeta.name}` : '',
       subtitulos: it.videoMeta?.subtitleLinks || [],
+      imagenes: [],
     }),
   },
   facebook: {
@@ -68,6 +79,7 @@ const ACTORES: Partial<Record<Fuente, { id: string; entrada: (url: string) => un
       miniatura: it.media?.[0]?.thumbnail || it.preferred_thumbnail?.image?.uri || null,
       autor: it.user?.name || autorDePermalink(it.permalink_url) || '',
       subtitulos: [],
+      imagenes: [],
     }),
   },
 };

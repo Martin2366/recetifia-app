@@ -16,7 +16,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 import { apifySoporta, cabeEnWhisper, COSTE_APIFY, datosDeApify, descargarVideo, desdeSubtitulos, transcribir } from './audio.ts';
-import { borrarVideo, estructurar, estructurarVideo, estructurarYoutube, subirVideo, type RecetaIa } from './ia.ts';
+import { borrarVideo, descargarImagenes, estructurar, estructurarImagenes, estructurarVideo, estructurarYoutube, subirVideo, type RecetaIa } from './ia.ts';
 import { obtenerContenido, type Contenido } from './obtener.ts';
 import { BROWSER_UA, canonicalizar, detectarFuente, jsonLdSuficiente, sha256, urlsEnTexto, type Fuente } from './util.ts';
 
@@ -236,8 +236,18 @@ async function procesar(
             } finally {
               borrarVideo(ENV.gemini, subido.nombre);
             }
+          } else if (a.imagenes.length) {
+            // Carrusel de fotos: la receta va escrita dentro de las imagenes
+            const imagenes = await descargarImagenes(a.imagenes);
+            if (imagenes.length) {
+              await etapa('ordenando');
+              r = await estructurarImagenes(ENV.gemini, ENV.modelo, imagenes, textoBase(c));
+              origen = 'imagenes';
+            } else {
+              notas.push('no se pudieron descargar las fotos del carrusel');
+            }
           } else {
-            notas.push('apify no dio video ni subtitulos');
+            notas.push('apify no dio video, subtitulos ni fotos');
           }
 
           if (r) {
