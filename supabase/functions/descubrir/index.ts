@@ -23,6 +23,8 @@ const ENV = {
   apify: Deno.env.get('APIFY_TOKEN') ?? '',
   gemini: Deno.env.get('GEMINI_API_KEY') ?? '',
   modelo: Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash',
+  precioEntrada: Number(Deno.env.get('PRICE_IN_PER_M') ?? 0.3),
+  precioSalida: Number(Deno.env.get('PRICE_OUT_PER_M') ?? 2.5),
   secreto: Deno.env.get('CATALOGO_SECRETO') ?? '',
   usuario: Deno.env.get('CATALOGO_USUARIO') ?? '',
 };
@@ -37,7 +39,7 @@ const HASHTAGS: Record<Plataforma, string[]> = {
 const HASHTAGS_POR_BUSQUEDA = 5;
 const RESULTADOS_POR_HASHTAG = 15;
 /** Cuantas recetas nuevas por red y por semana. */
-const POR_SEMANA = 18;
+const POR_SEMANA = 10;
 const MAX_POR_CREADOR = 3;
 // Cada importacion lanza un actor de Apify de 4 GB y el plan tiene 16 GB en
 // total, compartidos con las importaciones de las personas
@@ -86,16 +88,23 @@ Deno.serve(async (req) => {
 
 // ------------------------------------------------------------------ gasto
 
+/**
+ * Lo que Descubrir gasto en IA (importaciones del catalogo y etiquetado) desde
+ * el dia 1 o desde la ultima recarga de Gemini, lo que sea mas reciente: el
+ * credito es prepagado y chico. Apify tiene su propio control (apifyAlLimite).
+ */
 async function gastoDelMes(admin: SupabaseClient): Promise<number> {
-  const inicio = new Date();
-  inicio.setUTCDate(1);
-  inicio.setUTCHours(0, 0, 0, 0);
-  const [apify, imports] = await Promise.all([
-    admin.from('gasto_ia').select('costo').eq('fuente', 'descubrir').gte('creado', inicio.toISOString()),
-    admin.from('import_jobs').select('cost_usd').eq('user_id', ENV.usuario).gte('created_at', inicio.toISOString()),
+  const mes = new Date();
+  mes.setUTCDate(1);
+  mes.setUTCHours(0, 0, 0, 0);
+  const { data: a } = await admin.from('ajustes').select('credito_desde').eq('id', true).single();
+  const desde = new Date(Math.max(mes.getTime(), a?.credito_desde ? new Date(a.credito_desde).getTime() : 0)).toISOString();
+  const [ia, imports] = await Promise.all([
+    admin.from('gasto_ia').select('costo').eq('fuente', 'descubrir-ia').gte('creado', desde),
+    admin.from('import_jobs').select('cost_usd').eq('user_id', ENV.usuario).gte('created_at', desde),
   ]);
   const suma = (filas: { [k: string]: unknown }[] | null, k: string) => (filas ?? []).reduce((s, f) => s + Number(f[k] ?? 0), 0);
-  return suma(apify.data, 'costo') + suma(imports.data, 'cost_usd');
+  return suma(ia.data, 'costo') + suma(imports.data, 'cost_usd');
 }
 
 /** Si Apify ya va cerca del limite del mes: entonces Descubrir espera. */
@@ -128,6 +137,12 @@ async function tope(admin: SupabaseClient): Promise<number> {
 async function tocaBuscar(admin: SupabaseClient, log: string[]): Promise<boolean> {
   const { data: ultima } = await admin.from('descubrir_busquedas').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (ultima && Date.now() - new Date(ultima.created_at).getTime() < DIAS_ENTRE_BUSQUEDAS * 86_400_000) return false;
+  // Si todavia queda bastante por importar, no se busca (ni se paga) mas
+  const { count: pendientes } = await admin.from('descubrir_candidatos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente');
+  if ((pendientes ?? 0) > 10) {
+    log.push(`sin buscar: quedan ${pendientes} por importar`);
+    return false;
+  }
   const gasto = await gastoDelMes(admin);
   if (gasto >= (await tope(admin))) {
     log.push(`sin buscar: gasto del mes ${gasto.toFixed(2)} USD`);
@@ -341,7 +356,8 @@ async function publicarTerminadas(admin: SupabaseClient, log: string[]) {
       await admin.from('descubrir_candidatos').update({ estado: 'descartada', motivo: 'receta incompleta' }).eq('id', c.id);
       continue;
     }
-    const { etiquetas, esReceta } = await etiquetar(n);
+    const { etiquetas, esReceta, costo } = await etiquetar(n);
+    if (costo) await admin.from('gasto_ia').insert({ costo, fuente: 'descubrir-ia' });
     // Los hashtags de recetas traen de todo: comida para mascotas, remedios, cosmetica
     if (!esReceta) {
       await admin.from('descubrir_candidatos').update({ estado: 'descartada', motivo: 'no es una receta de comida' }).eq('id', c.id);
@@ -415,7 +431,7 @@ async function guardarFotoCreador(admin: SupabaseClient, plataforma: string, usu
  * Etiquetas: los ingredientes por palabras clave (sin IA); los chips populares
  * y el resto de categorias, de Gemini eligiendo solo de las listas fijas.
  */
-async function etiquetar(r: RecetaNormalizada): Promise<{ etiquetas: string[]; esReceta: boolean }> {
+async function etiquetar(r: RecetaNormalizada): Promise<{ etiquetas: string[]; esReceta: boolean; costo: number }> {
   const ingredientes = ingredientesDe((r.ingredients ?? []).map((i) => `${i.raw_text ?? ''} ${i.name ?? ''}`)).map((id) => `ing:${id}`);
   const listas = [
     `populares: ${ETIQUETAS.map((e) => `${e.id} (${e.nombre})`).join(', ')}`,
@@ -453,9 +469,12 @@ async function etiquetar(r: RecetaNormalizada): Promise<{ etiquetas: string[]; e
       const validas = new Set(c.opciones.map((o) => o.id));
       for (const x of r2[c.id] ?? []) if (validas.has(x)) salida.push(`${c.id}:${x}`);
     }
-    return { etiquetas: [...salida, ...ingredientes], esReceta: r2.es_receta !== false };
+    // Mismas tarifas que importar (PRICE_IN_PER_M, PRICE_OUT_PER_M), con el razonamiento incluido
+    const u = j?.usageMetadata ?? {};
+    const costo = ((u.promptTokenCount ?? 0) * ENV.precioEntrada + ((u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0)) * ENV.precioSalida) / 1e6;
+    return { etiquetas: [...salida, ...ingredientes], esReceta: r2.es_receta !== false, costo };
   } catch {
-    return { etiquetas: ingredientes, esReceta: true };
+    return { etiquetas: ingredientes, esReceta: true, costo: 0 };
   }
 }
 
