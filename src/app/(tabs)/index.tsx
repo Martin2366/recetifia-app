@@ -31,6 +31,7 @@ import { useCuota } from '@/lib/cuota';
 import { dejarFotos, elegirDeGaleria, prepararFotos, tomarFoto } from '@/lib/fotos';
 import { useLista } from '@/lib/lista';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
+import { dejarVideo, elegirVideo, MAX_MB, MAX_MINUTOS } from '@/lib/videos';
 
 /**
  * Biblioteca: la pantalla de inicio. Dos pestanas de carpeta (todas las recetas
@@ -89,11 +90,28 @@ export default function Biblioteca() {
     router.push({ pathname: '/importar/procesando', params: { fotos: '1' } });
   }
 
+  async function importarVideo() {
+    const r = await elegirVideo();
+    if (!r) return;
+    if ('problema' in r) {
+      Alert.alert(
+        r.problema === 'pesado' ? 'El video pesa mucho' : 'El video es muy largo',
+        r.problema === 'pesado'
+          ? `Elige uno de hasta ${MAX_MB} MB. Si es de una red social, compártelo desde ahí con su enlace.`
+          : `Elige uno de hasta ${MAX_MINUTOS} minutos.`
+      );
+      return;
+    }
+    dejarVideo(r.video);
+    router.push({ pathname: '/importar/procesando', params: { video: '1' } });
+  }
+
   function elegir(destino: DestinoHoja) {
     setHoja(false);
     // Deja cerrar la hoja antes de navegar, para que no se vea el salto
     setTimeout(() => {
       if (destino === 'galeria' || destino === 'camara') importarFoto(destino);
+      else if (destino === 'video') importarVideo();
       else if (destino === 'texto') router.push('/importar/texto');
       else if (destino === 'web') router.push('/importar/web');
       else if (destino === 'cero') router.push('/receta/nueva');

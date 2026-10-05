@@ -29,6 +29,10 @@ export type TarjetaDescubrir = {
   creador_foto: string | null;
   /** Solo desde 10: con menos no se muestra (nada de cifras infladas ni tristes). */
   guardados: number | null;
+  /** Numeros reales de la publicacion original. */
+  me_gusta: number | null;
+  vistas: number | null;
+  publicado_el: string | null;
 };
 
 export type Creador = {

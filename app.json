@@ -2,7 +2,7 @@
   "expo": {
     "name": "Recetifia",
     "slug": "recetifia-app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "recetifia",
@@ -41,7 +41,8 @@
             "enabled": true,
             "singleShareMimeTypes": [
               "text/plain",
-              "image/*"
+              "image/*",
+              "video/*"
             ]
           }
         }

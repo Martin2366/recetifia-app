@@ -11,6 +11,7 @@ import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useCrearColeccion } from '@/lib/colecciones';
 import type { Cuota } from '@/lib/cuota';
 import { MAX_FOTOS } from '@/lib/fotos';
+import { MAX_MB } from '@/lib/videos';
 
 import { TourImportar, tourImportarPendiente, type CaminoImportar } from './tour-importar';
 
@@ -23,7 +24,7 @@ const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 type Icono = keyof typeof MaterialCommunityIcons.glyphMap;
 type Vista = 'menu' | 'receta' | 'foto' | 'redes' | 'coleccion' | 'tour';
 
-export type DestinoHoja = 'texto' | 'web' | 'cero' | 'plus' | 'galeria' | 'camara';
+export type DestinoHoja = 'texto' | 'web' | 'cero' | 'plus' | 'galeria' | 'camara' | 'video';
 
 export function HojaAgregar({
   visible,
@@ -131,7 +132,7 @@ export function HojaAgregar({
                 </View>
               </Pressable>
               <View style={estilos.rejilla}>
-                <Cuadro icono="image-outline" titulo="Desde una foto" alPulsar={() => ir('foto')} />
+                <Cuadro icono="image-outline" titulo="Fotos o video" alPulsar={() => ir('foto')} />
                 {/* Texto y web no gastan importaciones: nunca se bloquean */}
                 <Cuadro icono="format-text" titulo="Desde un texto" alPulsar={() => alElegir('texto')} />
                 <Cuadro icono="link-variant" titulo="Desde la web" alPulsar={() => alElegir('web')} />
@@ -153,12 +154,13 @@ export function HojaAgregar({
 
           {vista === 'foto' ? (
             <View style={estilos.columna}>
-              <Cabecera titulo="Desde una foto" alVolver={volver} />
-              <Fila icono="image-multiple-outline" titulo="Elegir de la galería" detalle={`Hasta ${MAX_FOTOS} fotos de la misma receta`} alPulsar={() => alElegir('galeria')} />
+              <Cabecera titulo="Fotos o video" alVolver={volver} />
+              <Fila icono="image-multiple-outline" titulo="Elegir fotos" detalle={`Hasta ${MAX_FOTOS} fotos de la misma receta`} alPulsar={() => alElegir('galeria')} />
+              <Fila icono="movie-open-outline" titulo="Elegir un video" detalle={`Un reel guardado o tu grabación, hasta ${MAX_MB} MB`} alPulsar={() => alElegir('video')} />
               <Fila icono="camera-outline" titulo="Tomar una foto" detalle="De un libro, un cuaderno o una pantalla" alPulsar={() => alElegir('camara')} />
               <Text style={estilos.nota}>
-                Ideal para recetas de cuadernos, libros o capturas. También puedes compartir una captura a Recetifia desde tu galería.
-                Cuenta como una importación.
+                Ideal para cuadernos, libros, capturas o un reel que descargaste. También puedes compartir una foto o un video a
+                Recetifia desde tu galería. Cuenta como una importación.
               </Text>
             </View>
           ) : null}

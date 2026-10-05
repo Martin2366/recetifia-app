@@ -28,6 +28,7 @@ import {
 } from '@/lib/importacion';
 import { recetaDesdeTexto } from '@/lib/importar';
 import { useCrearReceta } from '@/lib/recetas';
+import { subirVideo, tomarVideoPendiente, VideoPesado } from '@/lib/videos';
 import { pedirResenaSiToca } from '@/lib/resena';
 import type { BorradorReceta, FuenteReceta } from '@/lib/tipos';
 
@@ -39,13 +40,15 @@ export default function Procesando() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const { url, fotos } = useLocalSearchParams<{ url?: string; fotos?: string }>();
-  // Las fotos llegan por memoria (no caben en la URL); se guardan para reintentar
+  const { url, fotos, video } = useLocalSearchParams<{ url?: string; fotos?: string; video?: string }>();
+  // Las fotos y el video llegan por memoria (no caben en la URL); se guardan para reintentar
   const fotosRef = useRef(fotos ? tomarFotosPendientes() : null);
+  const videoRef = useRef(video ? tomarVideoPendiente() : null);
+  const [subiendo, setSubiendo] = useState(false);
 
   const [intento, setIntento] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [errorInicio, setErrorInicio] = useState<'limite' | 'limite_plus' | 'enlace' | 'red' | null>(null);
+  const [errorInicio, setErrorInicio] = useState<'limite' | 'limite_plus' | 'enlace' | 'red' | 'pesado' | null>(null);
   const [receta, setReceta] = useState<RecetaImportada | null>(null);
   const iniciado = useRef(-1);
 
@@ -57,14 +60,27 @@ export default function Procesando() {
 
   useEffect(() => {
     // Una sola llamada por intento, aunque React monte el efecto dos veces
+    const v = videoRef.current;
     const entrada = fotosRef.current?.length ? fotosRef.current : url;
-    if (!entrada || iniciado.current === intento) return;
+    if ((!entrada && !v) || iniciado.current === intento) return;
     iniciado.current = intento;
-    iniciarImportacion(entrada)
+    // El video se sube en cada intento: el servidor lo borra al terminar
+    const empezar = v
+      ? (setSubiendo(true), subirVideo(v).finally(() => setSubiendo(false))).then((subido) => iniciarImportacion(subido))
+      : iniciarImportacion(entrada!);
+    empezar
       .then(setJobId)
       .catch((e) =>
         setErrorInicio(
-          e instanceof LimiteAlcanzado ? (e.plus ? 'limite_plus' : 'limite') : e instanceof EnlaceInvalido ? 'enlace' : 'red'
+          e instanceof LimiteAlcanzado
+            ? e.plus
+              ? 'limite_plus'
+              : 'limite'
+            : e instanceof EnlaceInvalido
+              ? 'enlace'
+              : e instanceof VideoPesado
+                ? 'pesado'
+                : 'red'
         )
       );
   }, [url, intento]);
@@ -184,7 +200,7 @@ export default function Procesando() {
     }
   }
 
-  const fallo = errorInicio === 'enlace' || errorInicio === 'red' || t?.status === 'failed';
+  const fallo = errorInicio === 'enlace' || errorInicio === 'red' || errorInicio === 'pesado' || t?.status === 'failed';
   const hayRescate = t?.status === 'failed' && Boolean(t.rescate);
 
   return (
@@ -256,9 +272,13 @@ export default function Procesando() {
           texto={
             errorInicio === 'enlace'
               ? 'Ese enlace no parece válido. Prueba compartiendo la publicación de nuevo.'
-              : errorInicio === 'red'
-                ? 'Se cortó la conexión. Revisa tu internet e inténtalo otra vez.'
-                : 'No encontramos ingredientes ni pasos en esa publicación. Puedes escribirla a mano: guardamos el enlace para que no la pierdas.'
+              : errorInicio === 'pesado'
+                ? 'El video pesa más de 50 MB. Prueba con uno más corto o compártelo desde la red social con su enlace.'
+                : errorInicio === 'red'
+                  ? 'Se cortó la conexión. Revisa tu internet e inténtalo otra vez.'
+                  : video
+                    ? 'No encontramos ingredientes ni pasos en ese video. Puedes escribirla a mano.'
+                    : 'No encontramos ingredientes ni pasos en esa publicación. Puedes escribirla a mano: guardamos el enlace para que no la pierdas.'
           }
           boton={{ texto: 'Escribirla a mano', alPulsar: aMano }}
           secundario={{ texto: 'Probar de nuevo', alPulsar: reintentar }}
@@ -266,7 +286,7 @@ export default function Procesando() {
         />
       ) : (
         <View style={estilos.centro}>
-          <Escaner etapa={t?.stage ?? (jobId ? 'leyendo' : 'iniciando')} />
+          <Escaner etapa={t?.stage ?? (subiendo ? 'subiendo' : jobId ? 'leyendo' : 'iniciando')} />
         </View>
       )}
     </View>

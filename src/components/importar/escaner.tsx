@@ -13,6 +13,7 @@ const INGREDIENTES = ['🥩', '🥔', '🫑', '🧄', '🍅', '🧀', '🥕', '�
 
 const TEXTOS: Record<string, string> = {
   iniciando: 'Preparando…',
+  subiendo: 'Subiendo el video…',
   leyendo: 'Leyendo la publicación…',
   escuchando: 'Viendo el video…',
   ordenando: 'Ordenando ingredientes y pasos…',

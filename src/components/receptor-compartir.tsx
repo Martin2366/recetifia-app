@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { dejarFotos, prepararFotos } from '@/lib/fotos';
 import { primeraUrl } from '@/lib/importacion';
+import { dejarVideo } from '@/lib/videos';
 
 // Lo compartido se limpia de forma asincrona: si la pantalla se redibuja antes,
 // llega otra vez el mismo enlace. Se recuerda el ultimo para no abrir (ni
@@ -26,8 +27,17 @@ export function ReceptorCompartir() {
       .filter((p) => p.shareType === 'image' || p.mimeType?.startsWith('image/'))
       .map((p) => p.value)
       .filter(Boolean);
+    // Un video de la galeria (un reel descargado): se sube y se importa
+    const video = sharedPayloads.find((p) => (p.shareType === 'video' || p.mimeType?.startsWith('video/')) && p.value);
     const url = sharedPayloads.map((p) => primeraUrl(p.value ?? '')).find(Boolean);
     clearSharedPayloads();
+    if (video) {
+      if (ultimo && ultimo.url === video.value && Date.now() - ultimo.en < 10_000) return;
+      ultimo = { url: video.value, en: Date.now() };
+      dejarVideo({ uri: video.value, mime: video.mimeType ?? 'video/mp4' });
+      router.push({ pathname: '/importar/procesando', params: { video: '1' } });
+      return;
+    }
     if (imagenes.length) {
       if (ultimo && ultimo.url === imagenes[0] && Date.now() - ultimo.en < 10_000) return;
       ultimo = { url: imagenes[0], en: Date.now() };

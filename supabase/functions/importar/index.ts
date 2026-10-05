@@ -38,7 +38,11 @@ const ENV = {
 // que nos cuesta dinero, importar con IA desde videos e imagenes. Las webs no
 // cuentan: casi siempre traen la receta publicada y salen gratis. Los topes
 // (15 en total gratis, 120 al mes con Plus) viven en public.ajustes.
-const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest', 'image'];
+const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest', 'image', 'video'];
+
+// La cuenta que llena Descubrir (funcion `descubrir`) entra con un secreto de
+// servidor en vez de una sesion: no tiene cuota y nunca la usa una persona.
+const CATALOGO = { secreto: Deno.env.get('CATALOGO_SECRETO') ?? '', usuario: Deno.env.get('CATALOGO_USUARIO') ?? '' };
 
 // Fotos desde la galeria o la camara: hasta 4 (una receta a doble pagina, varias
 // capturas). La app las manda ya comprimidas; esto es solo un tope de seguridad.
@@ -66,25 +70,34 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'metodo' }, 405);
 
   const admin = createClient(ENV.url, ENV.servicio, { auth: { persistSession: false } });
-  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  const { data: sesion } = await admin.auth.getUser(token);
-  const usuario = sesion?.user;
+  let usuario: { id: string } | null = null;
+  if (CATALOGO.secreto && CATALOGO.usuario && req.headers.get('x-catalogo-secreto') === CATALOGO.secreto) {
+    usuario = { id: CATALOGO.usuario };
+  } else {
+    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+    const { data: sesion } = await admin.auth.getUser(token);
+    usuario = sesion?.user ?? null;
+  }
   if (!usuario) return json({ error: 'sesion' }, 401);
 
   const cuerpo = await req.json().catch(() => ({}));
-  const fotos: Foto[] = (Array.isArray(cuerpo?.imagenes) ? cuerpo.imagenes : [])
-    .filter((f: Foto) => typeof f?.data === 'string' && f.data.length > 1000 && f.data.length < MAX_FOTO_BASE64 && String(f?.mime ?? '').startsWith('image/'))
-    .slice(0, MAX_FOTOS);
+  const esValida = (f: Foto) =>
+    typeof f?.data === 'string' && f.data.length > 1000 && f.data.length < MAX_FOTO_BASE64 && String(f?.mime ?? '').startsWith('image/');
+  // Video de la galeria: la app lo sube a su carpeta del bucket "videos" y manda
+  // la ruta, mas una portada (un cuadro del video) para la foto de la receta
+  const video = typeof cuerpo?.video === 'string' && cuerpo.video.startsWith(`${usuario.id}/`) ? (cuerpo.video as string) : '';
+  const portada: Foto[] = video && esValida(cuerpo?.portada) ? [cuerpo.portada] : [];
+  const fotos: Foto[] = video ? portada : (Array.isArray(cuerpo?.imagenes) ? cuerpo.imagenes : []).filter(esValida).slice(0, MAX_FOTOS);
   const entrada = String(cuerpo?.url ?? '').trim();
   // Lo compartido desde una app suele ser "Mira este reel https://..."
-  const url = fotos.length ? '' : (urlsEnTexto(entrada)[0] ?? entrada);
-  const fuente: Fuente | null = fotos.length ? 'image' : detectarFuente(url);
+  const url = video || fotos.length ? '' : (urlsEnTexto(entrada)[0] ?? entrada);
+  const fuente: Fuente | null = video ? 'video' : fotos.length ? 'image' : detectarFuente(url);
   if (!fuente) return json({ error: 'enlace' }, 400);
 
   // El mismo enlace dos veces en dos minutos es un doble toque o un doble
   // aviso de "Compartir": se devuelve el trabajo que ya esta en marcha, sin
   // cobrar otra vez la IA ni gastar otra importacion de la cuota.
-  const { data: reciente } = fotos.length ? { data: null } : await admin
+  const { data: reciente } = !url ? { data: null } : await admin
     .from('import_jobs')
     .select('id')
     .eq('user_id', usuario.id)
@@ -106,7 +119,8 @@ Deno.serve(async (req) => {
   }
 
   // Las fotos se reconocen por su contenido: la misma foto dos veces sale de la cache
-  const canonica = fotos.length ? `foto:${await sha256(fotos.map((f) => f.data).join(''))}` : canonicalizar(url);
+  // Cada video subido es unico (su ruta incluye un id nuevo)
+  const canonica = video ? `video:${video}` : fotos.length ? `foto:${await sha256(fotos.map((f) => f.data).join(''))}` : canonicalizar(url);
   const hash = await sha256(canonica);
 
   // Si alguien ya importo este enlace, se reutiliza: coste 0 e instantaneo
@@ -140,7 +154,7 @@ Deno.serve(async (req) => {
   if (error || !job) return json({ error: 'interno' }, 500);
 
   const ahorro = await enModoAhorro(admin);
-  EdgeRuntime.waitUntil(procesar(admin, job.id, url, canonica, hash, fuente, ahorro, fotos));
+  EdgeRuntime.waitUntil(procesar(admin, job.id, url, canonica, hash, fuente, ahorro, fotos, video));
   return json({ jobId: job.id });
 });
 
@@ -162,7 +176,9 @@ async function procesar(
   hash: string,
   fuente: Fuente,
   ahorro: boolean,
-  fotos: Foto[] = []
+  fotos: Foto[] = [],
+  /** Ruta en el bucket "videos" de un video de la galeria. */
+  rutaVideo = ''
 ) {
   const t0 = Date.now();
   let coste = 0;
@@ -186,14 +202,51 @@ async function procesar(
   let otras: RecetaIa[] = [];
 
   try {
-    const c: Contenido = fuente === 'image'
-      ? { titulo: '', autor: '', miniatura: null, texto: '', jsonLd: null, blog: null, via: ['foto'] }
+    const c: Contenido = fuente === 'image' || fuente === 'video'
+      ? { titulo: '', autor: '', miniatura: null, texto: '', jsonLd: null, blog: null, via: [fuente === 'video' ? 'video' : 'foto'] }
       : await obtenerContenido(url, fuente);
     contenido = c;
 
     if (ahorro) notas.push('modo ahorro: sin audio ni video');
 
-    if (fuente === 'image') {
+    if (fuente === 'video') {
+      // Video de la galeria: el audio por Whisper si pesa poco; si no trae los
+      // pasos (o es grande), Gemini lo mira entero, incluido el texto en pantalla
+      await etapa('escuchando');
+      const { data: archivo, error: errorDescarga } = await admin.storage.from('videos').download(rutaVideo);
+      if (errorDescarga || !archivo) throw new Error('no pudimos leer el video');
+      const bytes = new Uint8Array(await archivo.arrayBuffer());
+      const mime = archivo.type || 'video/mp4';
+      let transcripcion: string | null = null;
+      if (!ahorro && cabeEnWhisper(bytes) && ENV.groq) {
+        try {
+          transcripcion = await transcribir(bytes, ENV.groq, ENV.modeloGroq);
+        } catch (e) {
+          notas.push(`whisper: ${(e as Error).message}`);
+        }
+      }
+      if (transcripcion) {
+        await etapa('ordenando');
+        const r = await estructurar(ENV.gemini, ENV.modelo, `[Transcripción del audio del video]\n${transcripcion}`, { titulo: '', autor: '' });
+        sumar(r);
+        receta = r.receta;
+        origen = 'audio';
+      }
+      if (!ahorro && (!receta || receta.pasos.length < 2)) {
+        const subido = await subirVideo(ENV.gemini, bytes, mime);
+        try {
+          await etapa('ordenando');
+          const rv = await estructurarVideo(ENV.gemini, ENV.modelo, subido, transcripcion ?? '');
+          sumar(rv);
+          if (!receta || rv.receta.pasos.length > receta.pasos.length) {
+            receta = rv.receta;
+            origen = 'video';
+          }
+        } finally {
+          borrarVideo(ENV.gemini, subido.nombre);
+        }
+      }
+    } else if (fuente === 'image') {
       // Foto de un libro, un cuaderno o una captura: Gemini la lee igual que un
       // carrusel, y si trae varios platos salen por separado
       await etapa('ordenando');
@@ -317,7 +370,9 @@ async function procesar(
 
     await etapa('guardando');
     const foto =
-      fuente === 'image' ? await guardarFotoSubida(admin, fotos[0], hash) : await guardarFoto(admin, c.miniatura ?? c.jsonLd?.imagen ?? null, hash);
+      fuente === 'image' || fuente === 'video'
+        ? await guardarFotoSubida(admin, fotos[0], hash)
+        : await guardarFoto(admin, c.miniatura ?? c.jsonLd?.imagen ?? null, hash);
     const normalizar = (r: RecetaIa) => {
       const n = r.nutricion_por_porcion;
       return {
@@ -401,6 +456,9 @@ async function procesar(
       })
       .eq('id', jobId);
     await anotarGasto();
+  } finally {
+    // El video de la galeria ya no hace falta: no se guarda nada de la persona
+    if (rutaVideo) await admin.storage.from('videos').remove([rutaVideo]);
   }
 }
 

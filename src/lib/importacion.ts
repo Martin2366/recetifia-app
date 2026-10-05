@@ -55,9 +55,17 @@ export class LimiteAlcanzado extends Error {
 }
 export class EnlaceInvalido extends Error {}
 
-/** Un enlace, o fotos (galeria, camara o compartidas) ya preparadas. */
-export async function iniciarImportacion(entrada: string | FotoReceta[]): Promise<string> {
-  const body = typeof entrada === 'string' ? { url: entrada } : { imagenes: entrada };
+/** Un video de la galeria ya subido: su ruta en el bucket y un cuadro como portada. */
+export type VideoSubido = { ruta: string; portada: FotoReceta | null };
+
+/** Un enlace, fotos (galeria, camara o compartidas) ya preparadas, o un video subido. */
+export async function iniciarImportacion(entrada: string | FotoReceta[] | VideoSubido): Promise<string> {
+  const body =
+    typeof entrada === 'string'
+      ? { url: entrada }
+      : Array.isArray(entrada)
+        ? { imagenes: entrada }
+        : { video: entrada.ruta, portada: entrada.portada ?? undefined };
   const { data, error } = await supabase.functions.invoke<{ jobId: string }>('importar', { body });
   if (error) {
     if (error instanceof FunctionsHttpError) {

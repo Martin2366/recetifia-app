@@ -107,19 +107,38 @@ export function TarjetaRejilla({ tarjeta, ancho }: { tarjeta: TarjetaDescubrir; 
   );
 }
 
-/** "25 min · 1,2 mil guardados", lo que haya. */
+const RED: Record<string, string> = { instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', facebook: 'Facebook' };
+
+/**
+ * "25 min · 1,2 M vistas en TikTok", lo que haya. Las vistas (o los me gusta)
+ * son los numeros reales de la publicacion original.
+ */
 export function Detalle({ tarjeta }: { tarjeta: TarjetaDescubrir }) {
+  const red = RED[tarjeta.source_type] ?? '';
+  const social = tarjeta.vistas
+    ? `${formatoMiles(tarjeta.vistas)} vistas${red ? ` en ${red}` : ''}`
+    : tarjeta.me_gusta
+      ? `${formatoMiles(tarjeta.me_gusta)} me gusta`
+      : '';
   const partes = [
     tarjeta.minutos ? `${tarjeta.minutos} min` : '',
+    social,
     tarjeta.guardados ? `${formatoMiles(tarjeta.guardados)} guardados` : '',
   ].filter(Boolean);
   if (!partes.length) return null;
-  return <Text style={estilos.detalle}>{partes.join(' · ')}</Text>;
+  return (
+    <Text style={estilos.detalle} numberOfLines={1}>
+      {partes.join(' · ')}
+    </Text>
+  );
 }
 
+/** 950 · 12 mil · 1,2 M */
 export function formatoMiles(n: number): string {
-  if (n < 1000) return String(n);
-  return `${(n / 1000).toFixed(n < 10000 ? 1 : 0).replace('.', ',').replace(',0', '')} mil`;
+  const corto = (x: number) => x.toFixed(x < 10 ? 1 : 0).replace('.', ',').replace(/,0$/, '');
+  if (n >= 1_000_000) return `${corto(n / 1_000_000)} M`;
+  if (n >= 1000) return `${corto(n / 1000)} mil`;
+  return String(n);
 }
 
 const estilos = StyleSheet.create({
