@@ -5,28 +5,25 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HojaFiltro } from '@/components/descubrir/hoja-filtro';
 import { Colors, Radios, Tipografia } from '@/constants/theme';
+import { CATEGORIAS, type Categoria } from '@/lib/filtros';
 
 /**
- * Buscador de Descubrir. Por ahora llega hasta "Explora recetas por": lo que
- * abre cada tarjeta y la busqueda por texto vienen en la siguiente etapa.
+ * Buscador de Descubrir: escribir y buscar, o explorar por categoria. Cada
+ * tarjeta abre su hoja de filtros; al aplicar se va a los resultados.
  */
-
-type Forma = { id: string; nombre: string; emoji: string; fondo: string };
-
-const FORMAS: Forma[] = [
-  { id: 'ingredientes', nombre: 'Ingredientes', emoji: '🥕', fondo: '#DCEFC6' },
-  { id: 'tipo', nombre: 'Tipo de comida', emoji: '🍽️', fondo: '#DCE8FF' },
-  { id: 'dieta', nombre: 'Dieta', emoji: '🌱', fondo: '#FCE1EA' },
-  { id: 'cocina', nombre: 'Cocina', emoji: '🌎', fondo: '#E8DCF7' },
-  { id: 'ocasion', nombre: 'Ocasión', emoji: '🎉', fondo: '#FFE7A8' },
-  { id: 'metodo', nombre: 'Método', emoji: '🔥', fondo: '#FFD3C2' },
-];
 
 export default function Buscar() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [texto, setTexto] = useState('');
+  const [hoja, setHoja] = useState<Categoria | null>(null);
+
+  function ver(q: string, filtros: string[]) {
+    setHoja(null);
+    router.push({ pathname: '/descubrir/resultados', params: { q, f: filtros.join(',') } });
+  }
 
   return (
     <View style={[estilos.pantalla, { paddingTop: insets.top }]}>
@@ -40,6 +37,7 @@ export default function Buscar() {
           <TextInput
             value={texto}
             onChangeText={setTexto}
+            onSubmitEditing={() => texto.trim() && ver(texto.trim(), [])}
             placeholder="¿Qué te gustaría cocinar?"
             placeholderTextColor={Colors.light.textTenue}
             style={estilos.entrada}
@@ -57,16 +55,19 @@ export default function Buscar() {
 
       <Text style={estilos.subtitulo}>Explora recetas por</Text>
       <View style={estilos.rejilla}>
-        {FORMAS.map((f) => (
+        {CATEGORIAS.map((c) => (
           <Pressable
-            key={f.id}
+            key={c.id}
+            onPress={() => setHoja(c)}
             accessibilityRole="button"
-            style={({ pressed }) => [estilos.tarjeta, { backgroundColor: f.fondo }, pressed && { transform: [{ scale: 0.97 }] }]}>
-            <Text style={estilos.emoji}>{f.emoji}</Text>
-            <Text style={estilos.nombre}>{f.nombre}</Text>
+            style={({ pressed }) => [estilos.tarjeta, { backgroundColor: c.fondo }, pressed && { transform: [{ scale: 0.97 }] }]}>
+            <Text style={estilos.emoji}>{c.emoji}</Text>
+            <Text style={estilos.nombre}>{c.nombre}</Text>
           </Pressable>
         ))}
       </View>
+
+      <HojaFiltro categoria={hoja} filtros={[]} texto={texto} alCerrar={() => setHoja(null)} alAplicar={(f) => ver(texto.trim(), f)} />
     </View>
   );
 }

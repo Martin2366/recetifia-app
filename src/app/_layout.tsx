@@ -143,6 +143,7 @@ export default function RootLayout() {
               <Stack.Screen name="descubrir/lista" />
               <Stack.Screen name="descubrir/[id]" />
               <Stack.Screen name="descubrir/buscar" options={{ animation: 'fade' }} />
+              <Stack.Screen name="descubrir/resultados" />
             </Stack>
           </Guardian>
         </ThemeProvider>

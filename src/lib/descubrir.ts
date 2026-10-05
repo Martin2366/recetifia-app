@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { cargarReceta, type RecetaImportada } from './importacion';
 import { clavesRecetas, useCrearReceta } from './recetas';
+import { agrupar } from './filtros';
 import { supabase } from './supabase';
 
 /**
@@ -104,6 +105,45 @@ export function useRecetaDescubrir(id: string | undefined) {
       if (error) throw error;
       const tarjeta = data as TarjetaDescubrir;
       return { tarjeta, receta: await cargarReceta(tarjeta.extraction_id) };
+    },
+  });
+}
+
+/**
+ * Busqueda por texto y filtros ("ing:pollo", "tipo:cena"). Dentro de una
+ * categoria se suman; entre categorias se cruzan. Con varios ingredientes,
+ * primero salen las recetas que tienen mas de los elegidos.
+ */
+export function useDescubrirBuscar(texto: string, filtros: string[]) {
+  const t = texto.trim();
+  return useQuery({
+    queryKey: [...claveDescubrir, 'buscar', t, [...filtros].sort().join(',')],
+    staleTime: FRESCO,
+    placeholderData: (previo) => previo,
+    queryFn: async (): Promise<TarjetaDescubrir[]> => {
+      const { data, error } = await supabase.rpc('descubrir_buscar', { texto: t, grupos: agrupar(filtros) });
+      if (error) throw error;
+      return (data ?? []) as TarjetaDescubrir[];
+    },
+  });
+}
+
+/** Cuantas recetas saldrian, para el boton "Ver N recetas" de las hojas de filtros. */
+export function useConteoBuscar(texto: string, filtros: string[], activo = true) {
+  const t = texto.trim();
+  return useQuery({
+    queryKey: [...claveDescubrir, 'conteo', t, [...filtros].sort().join(',')],
+    enabled: activo,
+    staleTime: FRESCO,
+    placeholderData: (previo) => previo,
+    queryFn: async (): Promise<number> => {
+      // Por POST y una sola fila: con head (GET) el JSON de grupos no viaja bien
+      const { count, error } = await supabase
+        .rpc('descubrir_buscar', { texto: t, grupos: agrupar(filtros) }, { count: 'exact' })
+        .select('id')
+        .limit(1);
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 }

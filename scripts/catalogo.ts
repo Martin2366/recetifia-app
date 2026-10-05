@@ -5,6 +5,7 @@
  *
  *   npx tsx scripts/catalogo.ts            importa lo que falte
  *   npx tsx scripts/catalogo.ts --probar   solo lista los reels, sin importar
+ *   npx tsx scripts/catalogo.ts --reetiquetar   vuelve a etiquetar todo el catalogo
  *
  * La primera vez crea la cuenta del catalogo (anonima) y pide marcarla con
  * es_catalogo = true por SQL: sin esa marca no puede escribir en el catalogo.
@@ -16,6 +17,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ETIQUETAS } from '../src/lib/etiquetas';
+import { CATEGORIAS, ingredientesDe } from '../src/lib/filtros';
 
 type Plataforma = 'instagram' | 'tiktok';
 type Creador = { plataforma: Plataforma; usuario: string; cantidad?: number };
@@ -25,6 +27,7 @@ type Perfil = { nombre: string | null; foto: string | null };
 const RAIZ = resolve(__dirname, '..');
 const SESION = resolve(__dirname, '.catalogo-sesion.json');
 const PROBAR = process.argv.includes('--probar');
+const REETIQUETAR = process.argv.includes('--reetiquetar');
 const EN_PARALELO = 3;
 
 function leerEnv(ruta: string): Record<string, string> {
@@ -168,25 +171,62 @@ async function importar(sb: SupabaseClient, url: string): Promise<{ extraccion: 
   return null;
 }
 
-/** Elige etiquetas de la lista fija con una llamada corta a Gemini. */
-async function etiquetar(receta: unknown): Promise<string[]> {
-  const ids = ETIQUETAS.map((e) => `${e.id} (${e.nombre})`).join(', ');
-  const prompt = `Elige de 1 a 3 etiquetas para esta receta, SOLO de esta lista: ${ids}. "rapidas" solo si en total toma menos de 30 minutos. Responde un arreglo JSON de ids.\n\n${JSON.stringify(receta).slice(0, 6000)}`;
+type RecetaParaEtiquetar = { title?: string; description?: string; ingredients?: { raw_text?: string; name?: string }[]; steps?: { text?: string }[]; prep_minutes?: number | null; cook_minutes?: number | null };
+
+/**
+ * Etiquetas de la receta: los ingredientes salen por palabras clave (sin IA);
+ * los chips populares y el resto de categorias, de una llamada corta a Gemini
+ * que solo puede elegir de las listas fijas.
+ */
+async function etiquetar(r: RecetaParaEtiquetar): Promise<string[]> {
+  const ingredientes = ingredientesDe((r.ingredients ?? []).map((i) => `${i.raw_text ?? ''} ${i.name ?? ''}`)).map((id) => `ing:${id}`);
+  const listas = [
+    `populares: ${ETIQUETAS.map((e) => `${e.id} (${e.nombre})`).join(', ')}`,
+    ...CATEGORIAS.filter((c) => c.id !== 'ing').map((c) => `${c.id}: ${c.opciones.map((o) => `${o.id} (${o.nombre})`).join(', ')}`),
+  ].join('\n');
+  const prompt =
+    'Clasifica esta receta. Para cada clave elige ids SOLO de su lista; deja el arreglo vacio si ninguno aplica de verdad. ' +
+    'populares: 1 a 3. tipo: 1 o 2. dieta: solo si la receta la cumple entera (vegetariana = sin carne ni pescado). ' +
+    'cocina: el origen del plato, 0 o 1. ocasion: 0 a 2. metodo: los que usa la preparacion. ' +
+    '"rapidas" solo si en total toma menos de 30 minutos.\n' +
+    'Responde JSON: {"populares":[],"tipo":[],"dieta":[],"cocina":[],"ocasion":[],"metodo":[]}\n\nListas:\n' +
+    listas +
+    '\n\nReceta:\n' +
+    JSON.stringify({ title: r.title, description: r.description, ingredients: r.ingredients?.map((i) => i.raw_text), steps: r.steps?.map((p) => p.text), prep_minutes: r.prep_minutes, cook_minutes: r.cook_minutes }).slice(0, 8000);
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${GEMINI}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0 },
-      }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0 } }),
     });
     const json = await res.json();
-    const texto = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
-    const validas = new Set(ETIQUETAS.map((e) => e.id));
-    return (JSON.parse(texto) as string[]).filter((x) => validas.has(x)).slice(0, 3);
-  } catch {
-    return [];
+    const r2 = JSON.parse(json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}') as Record<string, string[]>;
+    const populares = new Set(ETIQUETAS.map((e) => e.id));
+    const salida = (r2.populares ?? []).filter((x) => populares.has(x)).slice(0, 3);
+    for (const c of CATEGORIAS) {
+      if (c.id === 'ing') continue;
+      const validas = new Set(c.opciones.map((o) => o.id));
+      for (const x of r2[c.id] ?? []) if (validas.has(x)) salida.push(`${c.id}:${x}`);
+    }
+    return [...salida, ...ingredientes];
+  } catch (e) {
+    console.warn(`  etiquetas: ${(e as Error).message}`);
+    return ingredientes;
+  }
+}
+
+/** Vuelve a etiquetar todo el catalogo con las listas actuales. */
+async function reetiquetar(sb: SupabaseClient) {
+  const { data, error } = await sb.from('descubrir_recetas').select('id, extraction_id');
+  if (error) throw error;
+  for (const fila of data ?? []) {
+    const { data: ext } = await sb.from('extractions').select('normalized_recipe').eq('id', fila.extraction_id).single();
+    const n = ext?.normalized_recipe as RecetaParaEtiquetar | undefined;
+    if (!n) continue;
+    const etiquetas = await etiquetar(n);
+    const { error: e } = await sb.from('descubrir_recetas').update({ etiquetas }).eq('id', fila.id);
+    if (e) throw e;
+    console.log(`✓ ${n.title}: ${etiquetas.join(', ')}`);
   }
 }
 
@@ -195,9 +235,9 @@ async function procesarReel(sb: SupabaseClient, creadorId: string, reel: Reel) {
   if (!r) return 'fallo';
   if (r.quality !== 'complete') return 'incompleta';
   const { data: ext } = await sb.from('extractions').select('normalized_recipe').eq('id', r.extraccion).single();
-  const n = ext?.normalized_recipe as { title?: string; ingredients?: unknown[]; image_path?: string | null } | undefined;
+  const n = ext?.normalized_recipe as (RecetaParaEtiquetar & { image_path?: string | null }) | undefined;
   if (!n?.ingredients?.length || !n.image_path) return 'incompleta';
-  const etiquetas = await etiquetar({ title: n.title, ingredients: n.ingredients });
+  const etiquetas = await etiquetar(n);
   const { error } = await sb
     .from('descubrir_recetas')
     .upsert({ extraction_id: r.extraccion, creador_id: creadorId, etiquetas }, { onConflict: 'extraction_id', ignoreDuplicates: true });
@@ -207,6 +247,10 @@ async function procesarReel(sb: SupabaseClient, creadorId: string, reel: Reel) {
 }
 
 async function main() {
+  if (REETIQUETAR) {
+    await reetiquetar(await cuenta());
+    return;
+  }
   const creadores = JSON.parse(readFileSync(resolve(__dirname, 'catalogo-creadores.json'), 'utf8')) as Creador[];
   if (!creadores.length) throw new Error('scripts/catalogo-creadores.json esta vacio');
   const sb = PROBAR ? null : await cuenta();
