@@ -39,7 +39,13 @@ const RESULTADOS_POR_HASHTAG = 15;
 /** Cuantas recetas nuevas por red y por semana. */
 const POR_SEMANA = 18;
 const MAX_POR_CREADOR = 3;
-const EN_PARALELO = 6;
+// Cada importacion lanza un actor de Apify de 4 GB y el plan tiene 16 GB en
+// total, compartidos con las importaciones de las personas
+const EN_PARALELO = 2;
+/** Parte del saldo mensual de Apify que Descubrir puede usar: el resto es de la gente. */
+const PARTE_APIFY = 0.6;
+/** Fallas de un servicio (credito, cuotas), no de la receta: se reintenta despues. */
+const FALLA_DE_SERVICIO = /prepayment|credits are depleted|memory limit|quota|rate limit|429|billing|exceed/i;
 const DIAS_ENTRE_BUSQUEDAS = 6.5;
 /** Solo lo reciente: "lo mas visto de la semana", no de hace un ano. */
 const MAX_DIAS_PUBLICADO = 45;
@@ -92,6 +98,26 @@ async function gastoDelMes(admin: SupabaseClient): Promise<number> {
   return suma(apify.data, 'costo') + suma(imports.data, 'cost_usd');
 }
 
+/** Si Apify ya va cerca del limite del mes: entonces Descubrir espera. */
+async function apifyAlLimite(log: string[]): Promise<boolean> {
+  try {
+    const r = await fetch(`https://api.apify.com/v2/users/me/limits?token=${ENV.apify}`);
+    const d = (await r.json())?.data;
+    const usado = Number(d?.current?.monthlyUsageUsd ?? 0);
+    const maximo = Number(d?.limits?.maxMonthlyUsageUsd ?? 0);
+    if (maximo && usado >= maximo * PARTE_APIFY) {
+      log.push(`apify en ${usado.toFixed(2)} de ${maximo} USD: Descubrir espera`);
+      return true;
+    }
+  } catch {
+    // Sin respuesta de Apify no se frena: el tope propio en dolares sigue
+  }
+  return false;
+}
+
+/** Una pausa entre llamadas cuando un servicio fallo (credito agotado, limites). */
+let servicioCaido = false;
+
 async function tope(admin: SupabaseClient): Promise<number> {
   const { data } = await admin.from('ajustes').select('tope_descubrir_mes_usd').eq('id', true).single();
   return Number(data?.tope_descubrir_mes_usd ?? 6);
@@ -107,7 +133,7 @@ async function tocaBuscar(admin: SupabaseClient, log: string[]): Promise<boolean
     log.push(`sin buscar: gasto del mes ${gasto.toFixed(2)} USD`);
     return false;
   }
-  return true;
+  return !servicioCaido && !(await apifyAlLimite(log));
 }
 
 async function buscar(admin: SupabaseClient, log: string[]) {
@@ -251,11 +277,12 @@ async function empezarImportaciones(admin: SupabaseClient, log: string[]) {
 
   const { count } = await admin.from('descubrir_candidatos').select('id', { count: 'exact', head: true }).eq('estado', 'importando');
   const libres = EN_PARALELO - (count ?? 0);
-  if (libres <= 0) return;
+  if (libres <= 0 || servicioCaido) return;
   if ((await gastoDelMes(admin)) >= (await tope(admin))) {
     log.push('sin importar: tope de gasto del mes');
     return;
   }
+  if (await apifyAlLimite(log)) return;
   const { data: siguientes } = await admin
     .from('descubrir_candidatos')
     .select('id, url')
@@ -297,7 +324,15 @@ async function publicarTerminadas(admin: SupabaseClient, log: string[]) {
     const { data: job } = await admin.from('import_jobs').select('status, extraction_id, failure_reason').eq('id', c.job_id).maybeSingle();
     if (!job || job.status === 'queued' || job.status === 'running') continue;
     if (job.status === 'failed' || !job.extraction_id) {
-      await admin.from('descubrir_candidatos').update({ estado: 'descartada', motivo: (job.failure_reason ?? 'fallo').slice(0, 200) }).eq('id', c.id);
+      const motivo = (job.failure_reason ?? 'fallo').slice(0, 200);
+      if (FALLA_DE_SERVICIO.test(job.failure_reason ?? '')) {
+        // No es culpa de la receta: vuelve a la cola y esta ronda no importa mas
+        servicioCaido = true;
+        await admin.from('descubrir_candidatos').update({ estado: 'pendiente', job_id: null, importando_desde: null, motivo }).eq('id', c.id);
+        log.push(`servicio caido: ${motivo.slice(0, 80)}`);
+        continue;
+      }
+      await admin.from('descubrir_candidatos').update({ estado: 'descartada', motivo }).eq('id', c.id);
       continue;
     }
     const { data: ext } = await admin.from('extractions').select('normalized_recipe').eq('id', job.extraction_id).single();
