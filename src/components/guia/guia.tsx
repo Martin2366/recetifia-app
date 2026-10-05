@@ -25,6 +25,7 @@ export type ObjetivoGuia =
   | 'mas'
   | 'cuota'
   | 'colecciones'
+  | 'plan'
   | 'lista'
   | 'perfil'
   | 'lista-agregar'
@@ -38,19 +39,20 @@ type Paso = { clave: ObjetivoGuia; titulo: string; texto: string };
 export type Recorrido = 'inicio' | 'lista';
 
 const PASOS: Paso[] = [
-  { clave: 'mas', titulo: 'Todo empieza aquí', texto: 'Con el + agregas recetas: desde un reel, una foto, una web, pegando el texto o escribiéndola tú.' },
-  { clave: 'cuota', titulo: 'Tus importaciones', texto: `Tienes ${LIMITES.importacionesGratis} importaciones gratis de videos. Guardar, escribir y organizar, sin límite.` },
-  { clave: 'colecciones', titulo: 'Colecciones', texto: 'Agrupa tus recetas en carpetas: postres, almuerzos rápidos, lo de la abuela.' },
-  { clave: 'lista', titulo: 'Lista de compras', texto: 'Desde cualquier receta, sus ingredientes llegan aquí, ordenados por pasillo.' },
-  { clave: 'perfil', titulo: 'Tu perfil', texto: 'Respalda tus recetas con Google y no las pierdes si cambias de teléfono.' },
+  { clave: 'mas', titulo: 'Agrega recetas', texto: 'Desde un reel, una foto, una web o escríbela tú.' },
+  { clave: 'cuota', titulo: 'Tus importaciones', texto: `${LIMITES.importacionesGratis} gratis desde videos y fotos. Lo demás, sin límite.` },
+  { clave: 'colecciones', titulo: 'Colecciones', texto: 'Agrupa tus recetas en carpetas.' },
+  { clave: 'plan', titulo: 'Plan', texto: 'Organiza tu semana y pásala a la lista.' },
+  { clave: 'lista', titulo: 'Lista de compras', texto: 'Los ingredientes llegan ordenados por pasillo.' },
+  { clave: 'perfil', titulo: 'Tu perfil', texto: 'Respalda tus recetas con Google.' },
 ];
 
 /** Solo se muestran los pasos cuyo objetivo esta en pantalla: con la lista vacia, "lista-vacia"; con productos, los demas. */
 const PASOS_LISTA: Paso[] = [
-  { clave: 'lista-agregar', titulo: 'Escribe lo que falte', texto: 'Agrega a mano lo que no viene en una receta: pan, detergente, lo que sea.' },
-  { clave: 'lista-vacia', titulo: 'Se llena sola', texto: 'Abre una receta y toca «Agregar a la lista»: sus ingredientes llegan aquí, ya sumados y ordenados por pasillo.' },
-  { clave: 'lista-pasillo', titulo: 'Ordenada por pasillo', texto: 'Todo se agrupa como en el supermercado, y si dos recetas llevan cebolla, se suma. Toca un producto al echarlo al carro.' },
-  { clave: 'lista-vaciar', titulo: 'Compra terminada', texto: 'Lo marcado baja a «En el carro». Al terminar, vacía la lista de un toque.' },
+  { clave: 'lista-agregar', titulo: 'Agrega a mano', texto: 'Pan, detergente, lo que falte.' },
+  { clave: 'lista-vacia', titulo: 'Se llena sola', texto: 'En una receta, toca «Agregar a la lista».' },
+  { clave: 'lista-pasillo', titulo: 'Por pasillo', texto: 'Lo repetido se suma. Toca un producto al echarlo al carro.' },
+  { clave: 'lista-vaciar', titulo: '¿Terminaste?', texto: 'Vacía la lista de un toque.' },
 ];
 
 const RECORRIDOS: Record<Recorrido, { pasos: Paso[]; clave: string; final: string }> = {
@@ -288,7 +290,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   contador: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primario },
-  titulo: { fontFamily: Tipografia.display, fontSize: 22, color: Colors.light.text },
+  titulo: { fontFamily: Tipografia.tituloTour, fontSize: 22, color: Colors.light.text },
   texto: { fontFamily: Tipografia.regular, fontSize: 15, lineHeight: 22, color: Colors.light.textSecondary },
   acciones: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   saltar: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.textSecondary },

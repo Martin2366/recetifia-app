@@ -4,6 +4,7 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+import { Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -111,6 +112,7 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     PlayfairDisplay_700Bold,
+    Fraunces_600SemiBold,
   });
 
   // Si las fuentes fallan, seguimos con la del sistema antes que dejar la app

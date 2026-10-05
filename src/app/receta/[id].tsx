@@ -15,6 +15,7 @@ import {
 
 import { TarjetaNutricion } from '@/components/nutricion';
 import { PantallaVacia } from '@/components/pantalla-vacia';
+import { HojaPlan } from '@/components/plan/hoja-plan';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Marca, Spacing, Tipografia } from '@/constants/theme';
 import { useCuota } from '@/lib/cuota';
@@ -42,6 +43,7 @@ export default function DetalleReceta() {
 
   const [porciones, setPorciones] = useState<number | null>(null);
   const [hechos, setHechos] = useState<Set<string>>(new Set());
+  const [hojaPlan, setHojaPlan] = useState(false);
 
   // Cocinar con las manos ocupadas y la pantalla apagándose es inutilizable.
   // Se libera sola al salir de esta pantalla.
@@ -267,6 +269,13 @@ export default function DetalleReceta() {
               )}
             </Pressable>
           ) : null}
+          <Pressable
+            onPress={() => setHojaPlan(true)}
+            accessibilityRole="button"
+            style={({ pressed }) => [estilos.anadirPlan, pressed && { opacity: 0.7 }]}>
+            <MaterialIcons name="event" size={20} color={Marca.primario} />
+            <ThemedText style={estilos.textoAnadirPlan}>Añadir al plan</ThemedText>
+          </Pressable>
         </View>
 
         {receta.nutrition?.calorias ? <TarjetaNutricion nutricion={receta.nutrition} bloqueada={!cuota.data?.plus} /> : null}
@@ -308,6 +317,17 @@ export default function DetalleReceta() {
           </Pressable>
         ) : null}
       </ScrollView>
+
+      <HojaPlan
+        modo={hojaPlan ? { tipo: 'receta', receta: { id: receta.id, title: receta.title }, porciones: porcionesActuales } : null}
+        alCerrar={() => setHojaPlan(false)}
+        alListo={(t) =>
+          Alert.alert('En tu plan', `Quedó para la ${t.charAt(0).toLowerCase()}${t.slice(1)}.`, [
+            { text: 'Seguir aquí', style: 'cancel' },
+            { text: 'Ver plan', onPress: () => router.navigate('/plan') },
+          ])
+        }
+      />
     </>
   );
 }
@@ -325,6 +345,18 @@ const estilos = StyleSheet.create({
     backgroundColor: Marca.primario,
   },
   textoAgregarLista: { color: '#FFFFFF', fontWeight: '600' },
+  anadirPlan: {
+    marginTop: Spacing.two,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: Marca.primario,
+  },
+  textoAnadirPlan: { color: Marca.primario, fontWeight: '600' },
   reintentar: { marginTop: Spacing.three, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 999, backgroundColor: Marca.primario },
   textoReintentar: { color: '#FFFFFF', fontWeight: '600' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },

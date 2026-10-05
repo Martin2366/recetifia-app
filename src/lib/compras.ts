@@ -48,7 +48,7 @@ export function abrirGestionDeSuscripcion() {
  */
 export const LIMITES = {
   /** Lo unico limitado del plan gratis: importar con IA desde videos e imagenes, en total. */
-  importacionesGratis: 10,
+  importacionesGratis: 15,
   /** Uso razonable de Plus, al mes. Respaldo: los valores reales vienen de public.ajustes. */
   plusPorMes: 120,
 } as const;

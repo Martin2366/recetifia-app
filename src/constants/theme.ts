@@ -48,6 +48,8 @@ export const Tipografia = {
   negrita: 'Inter_700Bold',
   /** Solo para titulos de receta y momentos destacados. */
   display: 'PlayfairDisplay_700Bold',
+  /** Titulos de las guias y los tours: serif redondeada, mas suave que Playfair. */
+  tituloTour: 'Fraunces_600SemiBold',
 } as const;
 
 export const Fonts = Platform.select({

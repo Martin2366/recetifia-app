@@ -660,7 +660,7 @@ const estilos = StyleSheet.create({
   rellenoCarga: { height: 6, borderRadius: 3, backgroundColor: Marca.primario, transformOrigin: 'left' },
 
   lista: { backgroundColor: '#FFF7F3' },
-  tituloLista: { fontFamily: Tipografia.display, fontSize: 30, lineHeight: 38, textAlign: 'center', color: Colors.light.text },
+  tituloLista: { fontFamily: Tipografia.tituloTour, fontSize: 30, lineHeight: 38, textAlign: 'center', color: Colors.light.text },
   subtituloLista: {
     fontFamily: Tipografia.regular,
     fontSize: 16,
