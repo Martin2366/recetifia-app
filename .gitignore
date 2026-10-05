@@ -51,3 +51,6 @@ assets/inicio/
 reseñas/
 bugs/
 .claude/settings.local.json
+
+# Sesion local de la cuenta del catalogo (scripts/catalogo.ts)
+scripts/.catalogo-sesion.json

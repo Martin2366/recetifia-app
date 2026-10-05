@@ -140,6 +140,9 @@ export default function RootLayout() {
               <Stack.Screen name="importar/procesando" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
               <Stack.Screen name="expo-sharing" options={{ animation: 'none' }} />
               <Stack.Screen name="plus" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="descubrir/lista" />
+              <Stack.Screen name="descubrir/[id]" />
+              <Stack.Screen name="descubrir/buscar" options={{ animation: 'fade' }} />
             </Stack>
           </Guardian>
         </ThemeProvider>
