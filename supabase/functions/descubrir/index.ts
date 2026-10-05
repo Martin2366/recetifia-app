@@ -366,6 +366,14 @@ async function publicarTerminadas(admin: SupabaseClient, log: string[]) {
     await admin.from('descubrir_candidatos').update({ estado: 'publicada' }).eq('id', c.id);
     log.push(`publicada: ${n.title}`);
   }
+
+  // Las recetas de prueba (cargadas a mano) se van cuando ya hay suficientes
+  // de redes: Descubrir no muestra nada curado
+  const { count } = await admin.from('descubrir_recetas').select('id', { count: 'exact', head: true }).eq('automatica', true).eq('publicada', true);
+  if ((count ?? 0) >= 10) {
+    const { data: quitadas } = await admin.from('descubrir_recetas').update({ publicada: false }).eq('automatica', false).eq('publicada', true).select('id');
+    if (quitadas?.length) log.push(`despublicadas ${quitadas.length} de prueba`);
+  }
 }
 
 async function guardarCreador(
