@@ -40,12 +40,12 @@ const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 
 const BlurAnimado = Animated.createAnimatedComponent(BlurView);
 
-type Etapa = 'reel' | 'hoja' | 'android' | 'importando' | 'lista';
+type Etapa = 'presenta' | 'reel' | 'hoja' | 'android' | 'importando' | 'lista';
 type Guiada = 'reel' | 'hoja' | 'android';
 type Rect = { x: number; y: number; w: number; h: number };
 
 const INSTRUCCIONES: Record<Guiada, { paso: number; texto: string }> = {
-  reel: { paso: 1, texto: 'Viste una receta que te encantó. Toca el avión de papel para compartirla.' },
+  reel: { paso: 1, texto: 'Para guardarla, toca el avión de papel: así se comparte un reel.' },
   hoja: { paso: 2, texto: 'Toca «Compartir en…» para abrir el menú de Android.' },
   android: { paso: 3, texto: 'Elige Recetifia entre tus apps.' },
 };
@@ -93,7 +93,8 @@ export default function Tour() {
   const [entrando, setEntrando] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const [etapa, setEtapa] = useState<Etapa>('reel');
+  // Primero se presenta la receta, nitida; recien despues se desenfoca alrededor del boton
+  const [etapa, setEtapa] = useState<Etapa>('presenta');
   // Paso cuyo objetivo ya esta quieto en pantalla y se puede medir
   const [asentada, setAsentada] = useState<Guiada | null>(null);
   const [foco, setFoco] = useState<Rect | null>(null);
@@ -111,13 +112,27 @@ export default function Tour() {
   const desenfoque = useSharedValue(0);
   const hoja = useSharedValue(0);
   const android = useSharedValue(0);
+  const entrada = useSharedValue(0);
+  const presentacion = useSharedValue(0);
 
-  // Al entrar: el reel se ve un instante y luego se desenfoca alrededor del avion
+  // Todo entra suave: la escena aparece desde negro y luego la tarjeta que presenta la receta
   useEffect(() => {
-    desenfoque.value = withDelay(350, withTiming(1, { duration: 450 }));
+    entrada.value = withTiming(1, { duration: 500, easing: SUAVE });
+    presentacion.value = withDelay(650, withTiming(1, { duration: 450, easing: SUAVE }));
+  }, [entrada, presentacion]);
+
+  // Al pasar al primer paso: se desenfoca alrededor del avion de papel
+  useEffect(() => {
+    if (etapa !== 'reel') return;
+    desenfoque.value = withDelay(150, withTiming(1, { duration: 500 }));
     const t = setTimeout(() => setAsentada('reel'), 350);
     return () => clearTimeout(t);
-  }, [desenfoque]);
+  }, [etapa, desenfoque]);
+
+  function empezarPasos() {
+    presentacion.value = withTiming(0, { duration: 250 });
+    setTimeout(() => setEtapa('reel'), 220);
+  }
 
   // Cada instruccion nueva entra desde arriba
   useEffect(() => {
@@ -199,7 +214,14 @@ export default function Tour() {
   }));
   // Se anima la intensidad y no la opacidad: con un padre semitransparente el
   // backdrop-filter de la web deja de pintarse
-  const propsDesenfoque = useAnimatedProps(() => ({ intensity: desenfoque.value * 34 }));
+  // 27 y no 34: el fondo se sigue reconociendo y el foco sigue claro
+  const propsDesenfoque = useAnimatedProps(() => ({ intensity: desenfoque.value * 27 }));
+  // La entrada es un velo negro que se va (no la opacidad de la escena: romperia el desenfoque)
+  const estiloVeloEntrada = useAnimatedStyle(() => ({ opacity: 1 - entrada.value }));
+  const estiloPresentacion = useAnimatedStyle(() => ({
+    opacity: presentacion.value,
+    transform: [{ translateY: interpolate(presentacion.value, [0, 1], [24, 0]) }],
+  }));
   const estiloHoja = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(hoja.value, [0, 1], [520, 0]) }] }));
   const estiloAndroid = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(android.value, [0, 1], [560, 0]) }] }));
 
@@ -209,7 +231,7 @@ export default function Tour() {
 
   return (
     <View ref={raiz} collapsable={false} style={estilos.pantalla}>
-      <StatusBar style={guiada ? 'light' : 'dark'} />
+      <StatusBar style={guiada || etapa === 'presenta' ? 'light' : 'dark'} />
 
       {/* La escena que se desenfoca: el reel y las dos hojas de compartir */}
       <BlurTargetView ref={escena} style={StyleSheet.absoluteFill}>
@@ -240,6 +262,16 @@ export default function Tour() {
       {etapa === 'importando' ? <Importando alTerminar={() => setEtapa('lista')} /> : null}
       {etapa === 'lista' ? <RecetaLista alContinuar={terminar} entrando={entrando} paddingInferior={insets.bottom} /> : null}
 
+      {etapa === 'presenta' ? (
+        <Animated.View
+          style={[estilos.instruccion, estilos.presenta, { bottom: insets.bottom + 28 }, estiloPresentacion]}
+          accessibilityLiveRegion="polite">
+          <Text style={estilos.tituloPresenta}>Esta es la receta que quieres guardar</Text>
+          <Text style={estilos.textoInstruccion}>Un reel de cocina, como los que ves todos los días. Vamos a traerla a Recetifia.</Text>
+          <BotonOnboarding texto="Siguiente" alPulsar={empezarPasos} />
+        </Animated.View>
+      ) : null}
+
       {guia ? (
         <Animated.View style={[estilos.instruccion, { top: insets.top + 56 }, estiloInstruccion]} accessibilityLiveRegion="polite">
           <Text style={estilos.pasoInstruccion}>PASO {guia.paso} DE 3</Text>
@@ -253,10 +285,16 @@ export default function Tour() {
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Omitir el recorrido"
-          style={({ pressed }) => [estilos.omitir, { top: insets.top + 10, opacity: pressed ? 0.7 : 1 }, !guiada && estilos.omitirClaro]}>
-          <Text style={[estilos.textoOmitir, !guiada && estilos.textoOmitirClaro]}>Omitir</Text>
+          style={({ pressed }) => [
+            estilos.omitir,
+            { top: insets.top + 10, opacity: pressed ? 0.7 : 1 },
+            !guiada && etapa !== 'presenta' && estilos.omitirClaro,
+          ]}>
+          <Text style={[estilos.textoOmitir, !guiada && etapa !== 'presenta' && estilos.textoOmitirClaro]}>Omitir</Text>
         </Pressable>
       ) : null}
+
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, estilos.veloEntrada, estiloVeloEntrada]} />
     </View>
   );
 }
@@ -583,7 +621,10 @@ const estilos = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
   },
-  pasoInstruccion: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primario },
+  pasoInstruccion: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primarioTexto },
+  presenta: { padding: 18, gap: 10 },
+  tituloPresenta: { fontFamily: Tipografia.tituloTour, fontSize: 22, lineHeight: 28, color: Colors.light.text },
+  veloEntrada: { backgroundColor: '#000' },
   textoInstruccion: { fontFamily: Tipografia.seminegrita, fontSize: 16, lineHeight: 22, color: Colors.light.text },
 
   foco: { position: 'absolute' },

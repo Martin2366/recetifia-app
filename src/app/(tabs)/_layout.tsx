@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Tabs } from 'expo-router';
 import { useEffect, type ComponentProps } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Easing as EasingRN, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,6 +18,8 @@ import { GuiaProvider, useObjetivoGuia, type ObjetivoGuia } from '@/components/g
 import { ReceptorCompartir } from '@/components/receptor-compartir';
 import { Colors, Marca, Tipografia } from '@/constants/theme';
 import { useSubidaAutomatica } from '@/lib/guardado-local';
+import { toque } from '@/lib/haptica';
+import { ANCHO_MAXIMO } from '@/hooks/use-ancho';
 
 type Icono = keyof typeof MaterialCommunityIcons.glyphMap;
 // expo-router no reexporta el tipo; se saca de la propia prop
@@ -34,6 +36,15 @@ const PESTANAS: Record<string, { titulo: string; icono: Icono; iconoActivo: Icon
 const CENTRO = 'descubrir';
 
 const ALTO_BARRA = 62;
+
+/** Cambio de pestana con un fundido corto: ni brusco ni lento. */
+const TRANSICION = {
+  headerShown: false,
+  animation: 'fade',
+  // En tablets cada pestana queda centrada con un ancho comodo
+  sceneStyle: { width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center' },
+  transitionSpec: { animation: 'timing', config: { duration: 180, easing: EasingRN.out(EasingRN.quad) } },
+} as const;
 /** Radio de la muesca y diametro del boton que flota dentro de ella. */
 const RADIO_MUESCA = 39;
 const BOTON = 60;
@@ -46,7 +57,7 @@ export default function TabsLayout() {
   return (
     // La guia de primeros pasos cubre tambien la barra de pestanas
     <GuiaProvider>
-      <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <Barra {...props} />}>
+      <Tabs screenOptions={TRANSICION} tabBar={(props) => <Barra {...props} />}>
         <Tabs.Screen name="index" />
         <Tabs.Screen name="plan" />
         <Tabs.Screen name="descubrir" />
@@ -72,7 +83,10 @@ function Barra({ state, navigation }: BottomTabBarProps) {
         const activa = state.index === i;
         const alPulsar = () => {
           const evento = navigation.emit({ type: 'tabPress', target: ruta.key, canPreventDefault: true });
-          if (!activa && !evento.defaultPrevented) navigation.navigate(ruta.name);
+          if (!activa && !evento.defaultPrevented) {
+            toque();
+            navigation.navigate(ruta.name);
+          }
         };
         if (ruta.name === CENTRO) {
           return <BotonCentral key={ruta.key} titulo={datos.titulo} activa={activa} alto={alto} alPulsar={alPulsar} />;
@@ -114,6 +128,8 @@ function Pestana({
     fondo.value = withSpring(activa ? 1 : 0, { damping: 18, stiffness: 220 });
   }, [activa, fondo]);
   const estiloFondo = useAnimatedStyle(() => ({ opacity: fondo.value, transform: [{ scaleX: 0.6 + fondo.value * 0.4 }] }));
+  // El icono activo crece un poco con el mismo resorte que su fondo
+  const estiloIcono = useAnimatedStyle(() => ({ transform: [{ scale: 1 + fondo.value * 0.08 }] }));
 
   const color = activa ? Marca.primario : Colors.light.textSecondary;
   return (
@@ -127,9 +143,16 @@ function Pestana({
       style={[estilos.pestana, { paddingBottom: margenAbajo }]}>
       <View style={estilos.icono}>
         <Animated.View style={[StyleSheet.absoluteFill, estilos.fondoActivo, estiloFondo]} />
-        <MaterialCommunityIcons name={icono} size={24} color={color} />
+        <Animated.View style={estiloIcono}>
+          <MaterialCommunityIcons name={icono} size={24} color={color} />
+        </Animated.View>
       </View>
-      <Text style={[estilos.titulo, { color }, activa && estilos.tituloActivo]}>{titulo}</Text>
+      <Text
+        style={[estilos.titulo, { color: activa ? Marca.primarioTexto : Colors.light.textSecondary }, activa && estilos.tituloActivo]}
+        maxFontSizeMultiplier={1.3}
+        numberOfLines={1}>
+        {titulo}
+      </Text>
     </Pressable>
   );
 }
@@ -180,7 +203,9 @@ function BotonCentral({ titulo, activa, alto, alPulsar }: { titulo: string; acti
           <MaterialCommunityIcons name={activa ? 'compass' : 'compass-outline'} size={28} color="#FFFFFF" />
         </Pressable>
       </Animated.View>
-      <Text style={[estilos.titulo, estilos.tituloCentro, { color: activa ? Marca.primario : Colors.light.textSecondary }, activa && estilos.tituloActivo]}>
+      <Text
+        maxFontSizeMultiplier={1.3}
+        style={[estilos.titulo, estilos.tituloCentro, { color: activa ? Marca.primarioTexto : Colors.light.textSecondary }, activa && estilos.tituloActivo]}>
         {titulo}
       </Text>
     </View>

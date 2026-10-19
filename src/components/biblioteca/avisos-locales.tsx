@@ -130,5 +130,5 @@ const estilos = StyleSheet.create({
   burbujaAlerta: { backgroundColor: '#FDECEA' },
   titulo: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text },
   detalle: { fontFamily: Tipografia.regular, fontSize: 13, color: Colors.light.textSecondary },
-  accion: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primario },
+  accion: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primarioTexto },
 });

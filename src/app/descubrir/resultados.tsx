@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HojaFiltro } from '@/components/descubrir/hoja-filtro';
@@ -10,6 +10,7 @@ import { TarjetaRejilla } from '@/components/descubrir/piezas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { useDescubrirBuscar } from '@/lib/descubrir';
 import { CATEGORIAS, opcionDe, partir, type Categoria } from '@/lib/filtros';
+import { ANCHO_MAXIMO, useAncho } from '@/hooks/use-ancho';
 
 /**
  * Resultados de Descubrir: texto y filtros juntos. Arriba, una pildora por
@@ -24,7 +25,7 @@ export default function Resultados() {
   const params = useLocalSearchParams<{ q?: string; f?: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const [escrito, setEscrito] = useState(params.q ?? '');
   const [texto, setTexto] = useState(params.q ?? '');
   const [filtros, setFiltros] = useState<string[]>(params.f ? params.f.split(',').filter(Boolean) : []);
@@ -119,8 +120,13 @@ export default function Resultados() {
       </View>
 
       <FlatList
+
+        style={{ width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center' }}
         data={resultados.data ?? []}
         keyExtractor={(t) => t.id}
+        initialNumToRender={6}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         numColumns={2}
         columnWrapperStyle={{ gap: SEPARACION }}
         keyboardShouldPersistTaps="handled"
@@ -201,7 +207,7 @@ const estilos = StyleSheet.create({
   emojiCategoria: { fontSize: 15 },
   textoCategoria: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Colors.light.text },
   cuantos: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  textoCuantos: { fontFamily: Tipografia.negrita, fontSize: 12, color: Marca.primario },
+  textoCuantos: { fontFamily: Tipografia.negrita, fontSize: 12, color: Marca.primarioTexto },
 
   activos: { gap: 8, paddingHorizontal: MARGEN, paddingTop: 10, paddingBottom: 4, alignItems: 'center' },
   activo: {

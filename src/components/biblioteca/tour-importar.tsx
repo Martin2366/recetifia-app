@@ -122,7 +122,7 @@ export function TourImportar({ alProbar, alTerminar }: { alProbar: (c: CaminoImp
 const estilos = StyleSheet.create({
   columna: { gap: 14 },
   cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  contador: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primario, textTransform: 'uppercase' },
+  contador: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primarioTexto, textTransform: 'uppercase' },
   saltar: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.textSecondary },
   tarjeta: {
     alignItems: 'center',
@@ -138,10 +138,10 @@ const estilos = StyleSheet.create({
   texto: { fontFamily: Tipografia.regular, fontSize: 15, lineHeight: 22, color: Colors.light.textSecondary, textAlign: 'center' },
   etiqueta: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radios.pildora, backgroundColor: '#FFF4EE' },
   etiquetaGratis: { backgroundColor: '#EAF7EE' },
-  textoEtiqueta: { fontFamily: Tipografia.seminegrita, fontSize: 13, color: Marca.primario },
+  textoEtiqueta: { fontFamily: Tipografia.seminegrita, fontSize: 13, color: Marca.primarioTexto },
   textoEtiquetaGratis: { color: Marca.exito },
   probar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  textoProbar: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primario },
+  textoProbar: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primarioTexto },
   puntos: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   punto: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.light.borde },
   puntoActivo: { width: 20, backgroundColor: Marca.primario },

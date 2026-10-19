@@ -255,7 +255,7 @@ const estilos = StyleSheet.create({
     borderBottomColor: '#DDD',
   },
   dominio: { fontFamily: Tipografia.media, fontSize: 11, color: '#444' },
-  tituloWeb: { fontFamily: Tipografia.negrita, color: Marca.primario, paddingHorizontal: 12, lineHeight: undefined },
+  tituloWeb: { fontFamily: Tipografia.negrita, color: Marca.primarioTexto, paddingHorizontal: 12, lineHeight: undefined },
   lineaTexto: { height: 6, borderRadius: 3, backgroundColor: '#E6E6E6', marginLeft: 12 },
 
   galeria: { flex: 1, backgroundColor: '#F2F2F4' },

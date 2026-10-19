@@ -104,7 +104,7 @@ const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   cabecera: { paddingHorizontal: 12, paddingTop: 18, gap: 6 },
   marca: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  nombreMarca: { fontFamily: Tipografia.negrita, color: Marca.primario },
+  nombreMarca: { fontFamily: Tipografia.negrita, color: Marca.primarioTexto },
   titulo: { fontFamily: Tipografia.display, color: Colors.light.text },
   pestanas: { flexDirection: 'row', gap: 6, marginTop: 2 },
   pestana: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: Colors.light.background },

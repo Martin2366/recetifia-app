@@ -39,7 +39,7 @@ export function TarjetaReceta({
         { backgroundColor: colores.backgroundElement, opacity: pressed ? 0.7 : 1 },
       ]}>
       {receta.image_path ? (
-        <Image source={{ uri: receta.image_path }} style={estilos.foto} contentFit="cover" transition={150} />
+        <Image cachePolicy="memory-disk" source={{ uri: receta.image_path }} style={estilos.foto} contentFit="cover" transition={150} />
       ) : (
         <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: colores.backgroundSelected }]}>
           <MaterialIcons name="restaurant" size={26} color={colores.textSecondary} />

@@ -1,12 +1,15 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Foto, LineaCreador } from '@/components/descubrir/piezas';
+import { VideoReceta } from '@/components/video-receta';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { etiqueta, useGuardarDeDescubrir, useRecetaDescubrir, useYaGuardada } from '@/lib/descubrir';
+import { exito } from '@/lib/haptica';
+import { ANCHO_MAXIMO, useAncho } from '@/hooks/use-ancho';
 
 /** Una receta del catalogo antes de guardarla: foto, creador, ingredientes y pasos. */
 
@@ -16,7 +19,7 @@ export default function RecetaDescubrir() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const consulta = useRecetaDescubrir(id);
   const ya = useYaGuardada(consulta.data?.tarjeta.extraction_id);
   const guardar = useGuardarDeDescubrir();
@@ -51,6 +54,7 @@ export default function RecetaDescubrir() {
     }
     try {
       const r = await guardar.mutateAsync(tarjeta);
+      exito();
       Alert.alert('Guardada en tus recetas', 'No gastó ninguna importación.', [
         { text: 'Seguir aquí', style: 'cancel' },
         { text: 'Abrir', onPress: () => router.push(`/receta/${r.id}`) },
@@ -63,7 +67,7 @@ export default function RecetaDescubrir() {
   return (
     <View style={estilos.pantalla}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}>
+      <ScrollView style={{ width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center' }} contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}>
         <Foto uri={tarjeta.foto} estilo={{ width: W, height: W * 1.05, borderRadius: 0 }} />
 
         <View style={estilos.cuerpo}>
@@ -75,6 +79,8 @@ export default function RecetaDescubrir() {
               <MaterialCommunityIcons name="open-in-new" size={15} color={Marca.primario} />
             </Pressable>
           </View>
+
+          <VideoReceta sourceUrl={tarjeta.source_url} foto={tarjeta.foto} ancho={W - 40} />
 
           <View style={estilos.datos}>
             {tarjeta.minutos ? <Dato icono="clock-outline" texto={`${tarjeta.minutos} min`} /> : null}
@@ -182,7 +188,7 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.pildora,
     backgroundColor: Marca.primarioTenue,
   },
-  textoOriginal: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primario },
+  textoOriginal: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primarioTexto },
   datos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   dato: {
     flexDirection: 'row',

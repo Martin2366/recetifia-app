@@ -31,6 +31,7 @@ import { useCrearReceta } from '@/lib/recetas';
 import { subirVideo, tomarVideoPendiente, VideoPesado } from '@/lib/videos';
 import { pedirResenaSiToca } from '@/lib/resena';
 import type { BorradorReceta, FuenteReceta } from '@/lib/tipos';
+import { exito } from '@/lib/haptica';
 
 /**
  * Importar un enlace con IA: llega desde "Compartir" en Instagram/TikTok o
@@ -139,6 +140,7 @@ export default function Procesando() {
     try {
       const { otras: _otras, ...sola } = receta;
       const { id, enCola } = await crear.mutateAsync({ ...sola, status: receta.quality === 'partial' ? 'needs_review' : 'complete' });
+      exito();
       if (enCola) {
         // Sin conexion: la receta ya esta a salvo en el telefono y se sube sola
         Alert.alert(
@@ -326,7 +328,7 @@ function Rescate({
         <View style={estilos.tarjetaRescate}>
           <View style={estilos.cabeceraRescate}>
             {datos.foto ? (
-              <Image source={{ uri: datos.foto }} style={estilos.fotoRescate} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: datos.foto }} style={estilos.fotoRescate} contentFit="cover" />
             ) : (
               <View style={[estilos.fotoRescate, estilos.sinFoto]}>
                 <MaterialCommunityIcons name="silverware-fork-knife" size={24} color={Marca.primario} />

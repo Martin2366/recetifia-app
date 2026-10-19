@@ -526,5 +526,5 @@ const estilos = StyleSheet.create({
   textoGratis: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text, flexShrink: 1, textAlign: 'center' },
   enlace: { alignSelf: 'center', paddingVertical: 4 },
   textoEnlace: { fontFamily: Tipografia.regular, fontSize: 15, color: Colors.light.textSecondary },
-  textoEnlaceMarca: { fontFamily: Tipografia.seminegrita, color: Marca.primario },
+  textoEnlaceMarca: { fontFamily: Tipografia.seminegrita, color: Marca.primarioTexto },
 });

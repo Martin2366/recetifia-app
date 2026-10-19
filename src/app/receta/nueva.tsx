@@ -363,7 +363,7 @@ function Editor({ inicio, alDescartarRecuperado }: { inicio: Inicio; alDescartar
             accessibilityRole="button">
             <Text style={estilos.etiqueta}>Foto</Text>
             {origen.image_path ? (
-              <Image source={{ uri: origen.image_path }} style={estilos.miniatura} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: origen.image_path }} style={estilos.miniatura} contentFit="cover" />
             ) : (
               <View style={estilos.camara}>
                 <MaterialCommunityIcons name="camera-outline" size={24} color={Colors.light.text} />
@@ -528,7 +528,7 @@ const estilos = StyleSheet.create({
   },
   cancelar: { fontFamily: Tipografia.media, fontSize: 16, color: Colors.light.textSecondary },
   tituloCabecera: { fontFamily: Tipografia.display, fontSize: 18, color: Colors.light.text },
-  guardar: { fontFamily: Tipografia.negrita, fontSize: 16, color: Marca.primario },
+  guardar: { fontFamily: Tipografia.negrita, fontSize: 16, color: Marca.primarioTexto },
   guardarApagado: { color: '#FFC7B2' },
 
   cuerpo: { gap: 12, paddingTop: 12 },
@@ -610,8 +610,8 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textoNumeroPaso: { fontFamily: Tipografia.negrita, fontSize: 12, color: Marca.primario },
+  textoNumeroPaso: { fontFamily: Tipografia.negrita, fontSize: 12, color: Marca.primarioTexto },
   entradaRenglon: { flex: 1, fontFamily: Tipografia.regular, fontSize: 16, lineHeight: 22, color: Colors.light.text, paddingVertical: 10 },
   agregar: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54 },
-  textoAgregar: { fontFamily: Tipografia.media, fontSize: 16, color: Marca.primario },
+  textoAgregar: { fontFamily: Tipografia.media, fontSize: 16, color: Marca.primarioTexto },
 });

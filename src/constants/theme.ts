@@ -15,6 +15,11 @@ export const Marca = {
   primarioSuave: '#FFA25A',
   /** Fondo tenue del primario, para chips y estados seleccionados. */
   primarioTenue: '#FFE9E0',
+  /**
+   * Naranja para TEXTO chico sobre blanco o crema: el primario no llega al
+   * contraste minimo (2,9:1). Este pasa 4,5:1. Los botones llenos siguen con el primario.
+   */
+  primarioTexto: '#C2410C',
   exito: '#22C55E',
   error: '#DC3A2A',
   aviso: '#B26A00',

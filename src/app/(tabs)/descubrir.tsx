@@ -1,12 +1,13 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, BotonGuardar, Detalle, Foto, LineaCreador } from '@/components/descubrir/piezas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { arroba, ETIQUETAS, useDescubrirInicio, type Creador, type TarjetaDescubrir } from '@/lib/descubrir';
+import { useAncho } from '@/hooks/use-ancho';
 
 /**
  * Descubrir: recetas de creadores de redes, curadas e importadas con nuestro
@@ -19,7 +20,7 @@ const MARGEN = 16;
 export default function Descubrir() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const inicio = useDescubrirInicio();
 
   // Dos filas de chips que se deslizan juntas
@@ -280,7 +281,7 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.pildora,
     backgroundColor: '#FFFFFF',
   },
-  textoEtiquetaDelDia: { fontFamily: Tipografia.tituloTour, fontSize: 15, color: Marca.primario },
+  textoEtiquetaDelDia: { fontFamily: Tipografia.tituloTour, fontSize: 15, color: Marca.primarioTexto },
   pieDelDia: { position: 'absolute', left: 18, right: 18, bottom: 18, gap: 8 },
   tituloDelDia: { fontFamily: Tipografia.display, fontSize: 27, lineHeight: 33, color: '#FFFFFF' },
   descripcionDelDia: { fontFamily: Tipografia.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.88)' },
@@ -290,7 +291,7 @@ const estilos = StyleSheet.create({
   tituloSeccion: { flex: 1, fontFamily: Tipografia.display, fontSize: 22, lineHeight: 28, color: Colors.light.text },
   // Abajo, a la altura de la ultima linea del titulo si este ocupa dos
   verTodo: { flexDirection: 'row', alignItems: 'center', paddingBottom: 3 },
-  textoVerTodo: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primario },
+  textoVerTodo: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primarioTexto },
 
   puesto: {
     position: 'absolute',

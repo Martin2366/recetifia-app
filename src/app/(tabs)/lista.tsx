@@ -9,6 +9,7 @@ import { useGuia, useObjetivoGuia } from '@/components/guia/guia';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { itemAMano, textoItem, useAgregarALista, useBorrarDeLista, useLista, useMarcarItem, type ItemLista } from '@/lib/lista';
 import { PASILLOS } from '@/lib/pasillos';
+import { toque } from '@/lib/haptica';
 
 /**
  * Lista de compras, ordenada por pasillo del supermercado. Se llena desde las
@@ -141,7 +142,10 @@ export default function Lista() {
               </Text>
               <View style={estilos.tarjeta}>
                 {s.items.map((item, i) => (
-                  <Fila key={item.id} item={item} primera={i === 0} alMarcar={() => marcar.mutate({ id: item.id, marcado: true })} />
+                  <Fila key={item.id} item={item} primera={i === 0} alMarcar={() => {
+                      toque();
+                      marcar.mutate({ id: item.id, marcado: true });
+                    }} />
                 ))}
               </View>
             </View>
@@ -157,7 +161,10 @@ export default function Lista() {
               </View>
               <View style={[estilos.tarjeta, estilos.tarjetaCarro]}>
                 {enCarro.map((item, i) => (
-                  <Fila key={item.id} item={item} primera={i === 0} alMarcar={() => marcar.mutate({ id: item.id, marcado: false })} />
+                  <Fila key={item.id} item={item} primera={i === 0} alMarcar={() => {
+                      toque();
+                      marcar.mutate({ id: item.id, marcado: false });
+                    }} />
                 ))}
               </View>
             </View>
@@ -211,7 +218,7 @@ const estilos = StyleSheet.create({
   tarjeta: { backgroundColor: '#FFFFFF', borderRadius: Radios.grande - 4, borderWidth: 1, borderColor: '#EDE5E0', overflow: 'hidden' },
   tarjetaCarro: { opacity: 0.75 },
   filaCarro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  quitar: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primario, marginRight: 4 },
+  quitar: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primarioTexto, marginRight: 4 },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 52, paddingHorizontal: 16, paddingVertical: 10 },
   filaBorde: { borderTopWidth: 1, borderTopColor: '#F1ECE9' },
   casilla: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D9CFC9', alignItems: 'center', justifyContent: 'center' },

@@ -64,7 +64,7 @@ export function TarjetaReceta({
       style={({ pressed }) => [{ width: ancho, opacity: pressed ? 0.85 : 1 }]}>
       <View style={[estilos.foto, { width: ancho, height: ancho * 1.05 }]}>
         {receta.image_path ? (
-          <Image source={{ uri: receta.image_path }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+          <Image cachePolicy="memory-disk" source={{ uri: receta.image_path }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
         ) : (
           <View style={[StyleSheet.absoluteFill, estilos.sinFoto, { backgroundColor: `${r.color}26` }]}>
             <MaterialCommunityIcons name={r.icono} size={ancho * 0.42} color={r.color} />

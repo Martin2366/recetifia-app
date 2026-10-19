@@ -130,7 +130,7 @@ export default function Onboarding() {
   );
 
   function comenzar() {
-    router.push('/onboarding/tour');
+    router.push('/onboarding/listo');
   }
 
   return (

@@ -7,12 +7,12 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
@@ -32,6 +32,7 @@ import { dejarFotos, elegirDeGaleria, prepararFotos, tomarFoto } from '@/lib/fot
 import { useLista } from '@/lib/lista';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
 import { dejarVideo, elegirVideo, MAX_MB, MAX_MINUTOS } from '@/lib/videos';
+import { useAncho } from '@/hooks/use-ancho';
 
 /**
  * Biblioteca: la pantalla de inicio. Dos pestanas de carpeta (todas las recetas
@@ -48,7 +49,7 @@ type Pestana = 'recetas' | 'colecciones';
 export default function Biblioteca() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const [pestana, setPestana] = useState<Pestana>('recetas');
   const [hoja, setHoja] = useState(false);
   const [busqueda, setBusqueda] = useState('');
@@ -165,6 +166,9 @@ export default function Biblioteca() {
             <FlatList
               data={lista}
               keyExtractor={(r) => r.id}
+              initialNumToRender={6}
+              windowSize={7}
+              removeClippedSubviews={Platform.OS === 'android'}
               numColumns={2}
               columnWrapperStyle={{ gap: SEPARACION }}
               contentContainerStyle={{ paddingHorizontal: MARGEN, paddingBottom: pieLista, rowGap: 20 }}
@@ -283,7 +287,7 @@ function Cabecera({
         ) : null}
         <Pressable onPress={alPulsarPerfil} accessibilityRole="button" accessibilityLabel="Tu perfil" style={estilos.avatar}>
           {foto ? (
-            <Image source={{ uri: foto }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={{ uri: foto }} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : nombre.trim() ? (
             <Text style={estilos.inicial}>{nombre.trim()[0].toUpperCase()}</Text>
           ) : (

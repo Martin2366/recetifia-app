@@ -6,6 +6,7 @@ import Animated, {
   Easing,
   interpolate,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -54,14 +55,17 @@ export function Silueta({
 }) {
   const aparece = useSharedValue(0);
   const flote = useSharedValue(0);
+  const quieto = useReducedMotion();
 
   useEffect(() => {
     aparece.value = withDelay(retraso, withSpring(1, { damping: 11, stiffness: 120 }));
+    // Con "reducir movimiento" aparece y se queda quieta
+    if (quieto) return;
     flote.value = withDelay(
       retraso + 600,
       withRepeat(withSequence(withTiming(1, { duration: 1900, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 1900, easing: Easing.inOut(Easing.sin) })), -1)
     );
-  }, [aparece, flote, retraso]);
+  }, [aparece, flote, retraso, quieto]);
 
   const estilo = useAnimatedStyle(() => {
     const entrada =

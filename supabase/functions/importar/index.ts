@@ -37,7 +37,7 @@ const ENV = {
 // Plan gratis: guardar, escribir y organizar no tienen tope. Solo se limita lo
 // que nos cuesta dinero, importar con IA desde videos e imagenes. Las webs no
 // cuentan: casi siempre traen la receta publicada y salen gratis. Los topes
-// (15 en total gratis, 120 al mes con Plus) viven en public.ajustes.
+// (10 en total gratis, 120 al mes con Plus) viven en public.ajustes.
 const FUENTES_CON_LIMITE: Fuente[] = ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest', 'image', 'video'];
 
 // La cuenta que llena Descubrir (funcion `descubrir`) entra con un secreto de

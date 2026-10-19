@@ -22,6 +22,7 @@ import { useConteoBuscar } from '@/lib/descubrir';
 import { GRUPOS_INGREDIENTES, INGREDIENTES, partir, sinTildes, type Categoria, type OpcionFiltro } from '@/lib/filtros';
 
 import { FOTOS_INGREDIENTES } from './fotos-ingredientes';
+import { exito, toque } from '@/lib/haptica';
 
 /**
  * Hoja para filtrar por una categoria. Se pueden marcar varias opciones; el
@@ -94,6 +95,7 @@ export function HojaFiltro({
 
   const clave = (o: OpcionFiltro) => `${actual.id}:${o.id}`;
   function alternar(o: OpcionFiltro) {
+    toque();
     setElegidas((s) => {
       const n = new Set(s);
       const k = clave(o);
@@ -191,7 +193,10 @@ export function HojaFiltro({
               <Text style={estilos.textoLimpiar}>Limpiar{elegidas.size ? ` (${elegidas.size})` : ''}</Text>
             </Pressable>
             <Pressable
-              onPress={() => alAplicar(resultado)}
+              onPress={() => {
+                exito();
+                alAplicar(resultado);
+              }}
               disabled={n === 0}
               accessibilityRole="button"
               style={[estilos.aplicar, n === 0 && estilos.aplicarApagado]}>

@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   useColorScheme,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -17,7 +18,8 @@ import { TarjetaNutricion } from '@/components/nutricion';
 import { PantallaVacia } from '@/components/pantalla-vacia';
 import { HojaPlan } from '@/components/plan/hoja-plan';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Marca, Spacing, Tipografia } from '@/constants/theme';
+import { VideoReceta } from '@/components/video-receta';
+import { Colors, Marca, MaxContentWidth, Spacing, Tipografia } from '@/constants/theme';
 import { useCuota } from '@/lib/cuota';
 import { textoIngredienteEscalado } from '@/lib/porciones';
 import { itemDesdeIngrediente, useAgregarALista } from '@/lib/lista';
@@ -44,6 +46,7 @@ export default function DetalleReceta() {
   const [porciones, setPorciones] = useState<number | null>(null);
   const [hechos, setHechos] = useState<Set<string>>(new Set());
   const [hojaPlan, setHojaPlan] = useState(false);
+  const { width } = useWindowDimensions();
 
   // Cocinar con las manos ocupadas y la pantalla apagándose es inutilizable.
   // Se libera sola al salir de esta pantalla.
@@ -174,6 +177,9 @@ export default function DetalleReceta() {
             ) : null}
           </View>
         ) : null}
+
+        {/* El video original, con el reproductor de su red: se carga al tocar */}
+        <VideoReceta sourceUrl={receta.source_url} foto={receta.image_path} ancho={Math.min(width, MaxContentWidth) - Spacing.three * 2} />
 
         {/* Porciones: un toque para lo comun, y +/- para lo exacto */}
         {porcionesBase ? (
@@ -360,7 +366,8 @@ const estilos = StyleSheet.create({
   reintentar: { marginTop: Spacing.three, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 999, backgroundColor: Marca.primario },
   textoReintentar: { color: '#FFFFFF', fontWeight: '600' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  contenido: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
+  // En tablets el texto no se estira a todo el ancho
+  contenido: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   meta: { flexDirection: 'row', gap: Spacing.three },
   aviso: { flexDirection: 'row', gap: Spacing.two, padding: Spacing.three, borderRadius: 12, alignItems: 'center' },
   avisoTexto: { flex: 1 },

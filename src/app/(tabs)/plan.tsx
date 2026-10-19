@@ -340,7 +340,7 @@ function FilaComida({ item, alPulsar, alAcciones }: { item: ItemPlan; alPulsar: 
         {receta ? (
           <View style={estilos.miniatura}>
             {receta.image_path ? (
-              <Image source={{ uri: receta.image_path }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+              <Image cachePolicy="memory-disk" source={{ uri: receta.image_path }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
             ) : (
               <MaterialCommunityIcons name="silverware-fork-knife" size={18} color={Marca.primarioSuave} />
             )}
@@ -377,9 +377,9 @@ const estilos = StyleSheet.create({
   flecha: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   centroSemana: { flex: 1, alignItems: 'center', gap: 2 },
   rango: { fontFamily: Tipografia.seminegrita, fontSize: 17, color: Colors.light.text },
-  estaSemana: { fontFamily: Tipografia.media, fontSize: 13, color: Marca.primario },
+  estaSemana: { fontFamily: Tipografia.media, fontSize: 13, color: Marca.primarioTexto },
   chipVolver: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  textoVolver: { fontFamily: Tipografia.seminegrita, fontSize: 13, color: Marca.primario },
+  textoVolver: { fontFamily: Tipografia.seminegrita, fontSize: 13, color: Marca.primarioTexto },
 
   tira: {
     flexDirection: 'row',
@@ -417,7 +417,7 @@ const estilos = StyleSheet.create({
   cabeceraDia: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   nombreDia: { fontFamily: Tipografia.seminegrita, fontSize: 16, color: Colors.light.text },
   etiquetaDia: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radios.pildora, backgroundColor: Marca.primarioTenue },
-  textoEtiquetaDia: { fontFamily: Tipografia.seminegrita, fontSize: 12, color: Marca.primario },
+  textoEtiquetaDia: { fontFamily: Tipografia.seminegrita, fontSize: 12, color: Marca.primarioTexto },
   mas: { width: 32, height: 32, borderRadius: 16, backgroundColor: Marca.primarioTenue, alignItems: 'center', justifyContent: 'center' },
 
   comidas: { gap: 4 },
@@ -478,7 +478,7 @@ const estilos = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   textoAviso: { flex: 1, fontFamily: Tipografia.media, fontSize: 14, color: Colors.light.text },
-  accionAviso: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primario },
+  accionAviso: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primarioTexto },
 
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 32, paddingBottom: 120 },
   tituloVacio: { fontFamily: Tipografia.display, fontSize: 24, textAlign: 'center', color: Colors.light.text },

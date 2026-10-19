@@ -24,6 +24,7 @@ import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { COMIDAS, MAX_NOTA, useAgregarAlPlan, useMoverEnPlan, type Comida, type ItemPlan } from '@/lib/plan';
 import { useRecetas } from '@/lib/recetas';
 import { deFecha, diasDeSemana, etiquetaRelativa, hoy, INICIALES, nombreDiaCorto, sumarDias } from '@/lib/semana';
+import { exito } from '@/lib/haptica';
 
 /**
  * Hoja para el plan. Dos vistas: cuando (dia y comida) y que (receta o nota).
@@ -118,6 +119,7 @@ export function HojaPlan({
       } else {
         mover.mutate({ id: actual.item.id, day: dia, meal: c });
       }
+      exito();
       alCerrar();
       alListo?.(texto);
     } catch {
@@ -129,6 +131,7 @@ export function HojaPlan({
     if (!comida) return;
     try {
       await agregar.mutateAsync({ day: dia, meal: comida, ...nuevo });
+      exito();
       alCerrar();
       alListo?.(resumen);
     } catch {
@@ -332,7 +335,7 @@ function VistaQue({
                       style={({ pressed }) => [estilos.filaReceta, pressed && estilos.presionada]}>
                       <View style={estilos.miniatura}>
                         {item.image_path ? (
-                          <Image source={{ uri: item.image_path }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+                          <Image cachePolicy="memory-disk" source={{ uri: item.image_path }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
                         ) : (
                           <MaterialCommunityIcons name="silverware-fork-knife" size={20} color={Marca.primarioSuave} />
                         )}

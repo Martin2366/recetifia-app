@@ -65,7 +65,7 @@ export function VistaPrevia({
       <ScrollView contentContainerStyle={{ paddingBottom: 190 + insets.bottom }}>
         <View style={estilos.cabecera}>
           {receta.image_path ? (
-            <Image source={{ uri: receta.image_path }} style={estilos.foto} contentFit="cover" transition={200} />
+            <Image cachePolicy="memory-disk" source={{ uri: receta.image_path }} style={estilos.foto} contentFit="cover" transition={200} />
           ) : (
             <View style={[estilos.foto, estilos.sinFoto]}>
               <MaterialCommunityIcons name="silverware-fork-knife" size={34} color={Marca.primario} />
@@ -232,7 +232,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#FFF6E6',
   },
   textoAviso: { fontFamily: Tipografia.regular, fontSize: 14, lineHeight: 21, color: Colors.light.text },
-  enlace: { fontFamily: Tipografia.seminegrita, color: Marca.primario, textDecorationLine: 'underline' },
+  enlace: { fontFamily: Tipografia.seminegrita, color: Marca.primarioTexto, textDecorationLine: 'underline' },
 
   seccion: { paddingHorizontal: 18, paddingTop: 22, borderTopWidth: 8, borderTopColor: '#F7F2EE', marginTop: 12 },
   etiqueta: { fontFamily: Tipografia.seminegrita, fontSize: 14, letterSpacing: 1.2, textTransform: 'uppercase', color: Colors.light.text, marginBottom: 8 },
@@ -245,7 +245,7 @@ const estilos = StyleSheet.create({
   cantidad: { fontFamily: Tipografia.negrita },
   paso: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
   numero: { width: 26, height: 26, borderRadius: 13, backgroundColor: Marca.primarioTenue, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  textoNumero: { fontFamily: Tipografia.negrita, fontSize: 13, color: Marca.primario },
+  textoNumero: { fontFamily: Tipografia.negrita, fontSize: 13, color: Marca.primarioTexto },
   textoPaso: { flex: 1, fontFamily: Tipografia.regular, fontSize: 16, lineHeight: 24, color: Colors.light.text },
   seccionNutricion: { paddingHorizontal: 18, paddingTop: 22, borderTopWidth: 8, borderTopColor: '#F7F2EE', marginTop: 12 },
 
@@ -266,7 +266,7 @@ const estilos = StyleSheet.create({
   lista: { borderRadius: Radios.medio, borderWidth: 1, borderColor: Colors.light.borde, paddingHorizontal: 14, maxHeight: 220 },
   opcion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   textoOpcion: { fontFamily: Tipografia.regular, fontSize: 15, color: Colors.light.text },
-  opcionElegida: { fontFamily: Tipografia.seminegrita, color: Marca.primario },
+  opcionElegida: { fontFamily: Tipografia.seminegrita, color: Marca.primarioTexto },
   cargando: { minHeight: 56, borderRadius: Radios.pildora, backgroundColor: Marca.primario, alignItems: 'center', justifyContent: 'center' },
   enlacesPie: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
   separador: { color: Colors.light.textTenue },

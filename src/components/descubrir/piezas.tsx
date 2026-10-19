@@ -1,10 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { memo } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { Colors, Marca, Tipografia } from '@/constants/theme';
 import { arroba, useGuardarDeDescubrir, useMisExtracciones, type TarjetaDescubrir } from '@/lib/descubrir';
+import { exito } from '@/lib/haptica';
 
 /** Piezas compartidas por el inicio de Descubrir, la rejilla y el detalle. */
 
@@ -18,6 +20,7 @@ export function BotonGuardar({ tarjeta, estilo }: { tarjeta: TarjetaDescubrir; e
   async function alPulsar() {
     try {
       const r = await guardar.mutateAsync(tarjeta);
+      if (!r.yaEstaba) exito();
       if (guardada || r.yaEstaba) router.push(`/receta/${r.id}`);
     } catch {
       Alert.alert('No se guardó', 'Revisa tu conexión e inténtalo de nuevo.');
@@ -62,7 +65,7 @@ export function Avatar({ usuario, foto, tamano = 72, anillo = true }: { usuario:
     <View style={[estilos.anillo, { width: tamano, height: tamano, borderRadius: tamano / 2 }, !anillo && { borderWidth: 0 }]}>
       <View style={[estilos.avatar, { width: interno, height: interno, borderRadius: interno / 2 }]}>
         {foto ? (
-          <Image source={{ uri: foto }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Image cachePolicy="memory-disk" source={{ uri: foto }} style={StyleSheet.absoluteFill} contentFit="cover" />
         ) : (
           <Text style={[estilos.inicial, { fontSize: interno * 0.4 }]}>{inicial}</Text>
         )}
@@ -85,7 +88,7 @@ export function LineaCreador({ tarjeta, claro = false }: { tarjeta: TarjetaDescu
 }
 
 /** Tarjeta de la rejilla de 2 columnas ("Ver todo", una etiqueta o un creador). */
-export function TarjetaRejilla({ tarjeta, ancho }: { tarjeta: TarjetaDescubrir; ancho: number }) {
+export const TarjetaRejilla = memo(function TarjetaRejilla({ tarjeta, ancho }: { tarjeta: TarjetaDescubrir; ancho: number }) {
   const router = useRouter();
   // El marcador va al lado de la tarjeta, no dentro: dos botones no se anidan
   return (
@@ -105,18 +108,16 @@ export function TarjetaRejilla({ tarjeta, ancho }: { tarjeta: TarjetaDescubrir; 
       <BotonGuardar tarjeta={tarjeta} estilo={estilos.marcadorEsquina} />
     </View>
   );
-}
+});
 
-const RED: Record<string, string> = { instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', facebook: 'Facebook' };
 
 /**
- * "25 min · 1,2 M vistas en TikTok", lo que haya. Las vistas (o los me gusta)
- * son los numeros reales de la publicacion original.
+ * "25 min · 1,2 M vistas", lo que haya. Las vistas (o los me gusta) son los
+ * numeros reales de la publicacion original; la red se ve en el boton del video.
  */
 export function Detalle({ tarjeta }: { tarjeta: TarjetaDescubrir }) {
-  const red = RED[tarjeta.source_type] ?? '';
   const social = tarjeta.vistas
-    ? `${formatoMiles(tarjeta.vistas)} vistas${red ? ` en ${red}` : ''}`
+    ? `${formatoMiles(tarjeta.vistas)} vistas`
     : tarjeta.me_gusta
       ? `${formatoMiles(tarjeta.me_gusta)} me gusta`
       : '';
@@ -159,7 +160,7 @@ const estilos = StyleSheet.create({
   foto: { borderRadius: 16, overflow: 'hidden', backgroundColor: Marca.primarioTenue, alignItems: 'center', justifyContent: 'center' },
   anillo: { borderWidth: 2.5, borderColor: Marca.primario, alignItems: 'center', justifyContent: 'center' },
   avatar: { overflow: 'hidden', backgroundColor: Marca.primarioTenue, alignItems: 'center', justifyContent: 'center' },
-  inicial: { fontFamily: Tipografia.negrita, color: Marca.primario },
+  inicial: { fontFamily: Tipografia.negrita, color: Marca.primarioTexto },
   lineaCreador: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   textoCreador: { flexShrink: 1, fontFamily: Tipografia.media, fontSize: 13, color: Colors.light.textSecondary },
   tituloTarjeta: { fontFamily: Tipografia.seminegrita, fontSize: 16, lineHeight: 21, color: Colors.light.text },

@@ -289,7 +289,7 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.grande,
     backgroundColor: '#FFFFFF',
   },
-  contador: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primario },
+  contador: { fontFamily: Tipografia.negrita, fontSize: 12, letterSpacing: 0.8, color: Marca.primarioTexto },
   titulo: { fontFamily: Tipografia.tituloTour, fontSize: 22, color: Colors.light.text },
   texto: { fontFamily: Tipografia.regular, fontSize: 15, lineHeight: 22, color: Colors.light.textSecondary },
   acciones: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },

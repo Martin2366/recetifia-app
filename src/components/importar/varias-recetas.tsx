@@ -53,7 +53,7 @@ export function VariasRecetas({
       <ScrollView contentContainerStyle={{ paddingBottom: 200 + insets.bottom }}>
         <View style={estilos.cabecera}>
           {foto ? (
-            <Image source={{ uri: foto }} style={estilos.foto} contentFit="cover" transition={200} />
+            <Image cachePolicy="memory-disk" source={{ uri: foto }} style={estilos.foto} contentFit="cover" transition={200} />
           ) : (
             <View style={[estilos.foto, estilos.sinFoto]}>
               <MaterialCommunityIcons name="silverware-fork-knife" size={30} color={Marca.primario} />
@@ -215,7 +215,7 @@ const estilos = StyleSheet.create({
   lista: { borderRadius: Radios.medio, borderWidth: 1, borderColor: Colors.light.borde, paddingHorizontal: 14, maxHeight: 220 },
   opcion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   textoOpcion: { fontFamily: Tipografia.regular, fontSize: 15, color: Colors.light.text },
-  opcionElegida: { fontFamily: Tipografia.seminegrita, color: Marca.primario },
+  opcionElegida: { fontFamily: Tipografia.seminegrita, color: Marca.primarioTexto },
   cargando: { minHeight: 56, borderRadius: Radios.pildora, backgroundColor: Marca.primario, alignItems: 'center', justifyContent: 'center' },
   descartar: { fontFamily: Tipografia.regular, fontSize: 13, color: Colors.light.textSecondary },
 });

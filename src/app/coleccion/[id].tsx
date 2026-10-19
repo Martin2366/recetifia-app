@@ -13,7 +13,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -32,6 +31,7 @@ import {
 } from '@/lib/colecciones';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
 import type { Receta } from '@/lib/tipos';
+import { ANCHO_MAXIMO, useAncho } from '@/hooks/use-ancho';
 
 /**
  * Una coleccion por dentro. Quitar una receta de aqui NUNCA la borra de la
@@ -46,7 +46,7 @@ export default function ColeccionDetalle() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const qc = useQueryClient();
 
   const coleccion = useColeccion(id);
@@ -130,6 +130,7 @@ export default function ColeccionDetalle() {
         </View>
       ) : (
         <FlatList
+          style={{ width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center' }}
           data={datos.recetas}
           keyExtractor={(r) => r.id}
           numColumns={2}
@@ -248,7 +249,7 @@ function ElegirRecetas({
                   accessibilityState={{ checked: marcada }}
                   style={({ pressed }) => [estilos.filaReceta, pressed && { backgroundColor: '#FFF7F3' }]}>
                   {item.image_path ? (
-                    <Image source={{ uri: item.image_path }} style={estilos.miniatura} contentFit="cover" />
+                    <Image cachePolicy="memory-disk" source={{ uri: item.image_path }} style={estilos.miniatura} contentFit="cover" />
                   ) : (
                     <View style={[estilos.miniatura, estilos.sinFoto]}>
                       <MaterialCommunityIcons name="silverware-fork-knife" size={20} color={Marca.primario} />

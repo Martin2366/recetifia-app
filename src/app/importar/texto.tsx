@@ -83,7 +83,7 @@ const estilos = StyleSheet.create({
     borderBottomColor: Colors.light.borde,
   },
   titulo: { fontFamily: Tipografia.display, fontSize: 19, color: Colors.light.text },
-  importar: { fontFamily: Tipografia.negrita, fontSize: 17, color: Marca.primario },
+  importar: { fontFamily: Tipografia.negrita, fontSize: 17, color: Marca.primarioTexto },
   importarApagado: { color: '#FFC7B2' },
 
   cuerpo: { padding: 18, gap: 18, flexGrow: 1 },

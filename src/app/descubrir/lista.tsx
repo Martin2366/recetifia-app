@@ -1,12 +1,13 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, TarjetaRejilla } from '@/components/descubrir/piezas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { arroba, etiqueta, useCreador, useDescubrirInicio, useDescubrirLista, type TipoLista } from '@/lib/descubrir';
+import { ANCHO_MAXIMO, useAncho } from '@/hooks/use-ancho';
 
 /** "Ver todo": rejilla de 2 columnas de populares, de una etiqueta o de un creador; o todos los creadores. */
 
@@ -21,7 +22,7 @@ export default function ListaDescubrir() {
 
 function Rejilla({ tipo, valor }: { tipo: TipoLista; valor?: string }) {
   const insets = useSafeAreaInsets();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const lista = useDescubrirLista(tipo, valor);
   const creador = useCreador(tipo === 'creador' ? valor : undefined);
   const ancho = (W - MARGEN * 2 - SEPARACION) / 2;
@@ -35,8 +36,12 @@ function Rejilla({ tipo, valor }: { tipo: TipoLista; valor?: string }) {
       <StatusBar style="dark" />
       <BarraSuperior />
       <FlatList
+        style={{ width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center' }}
         data={lista.data ?? []}
         keyExtractor={(t) => t.id}
+        initialNumToRender={6}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         numColumns={2}
         columnWrapperStyle={{ gap: SEPARACION }}
         contentContainerStyle={{ paddingHorizontal: MARGEN, gap: 22, paddingBottom: insets.bottom + 32 }}
@@ -85,7 +90,7 @@ function Rejilla({ tipo, valor }: { tipo: TipoLista; valor?: string }) {
 function Creadores() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { width: W } = useWindowDimensions();
+  const { ancho: W } = useAncho();
   const inicio = useDescubrirInicio();
   const creadores = inicio.data?.creadores ?? [];
   const columnas = 3;
@@ -96,6 +101,7 @@ function Creadores() {
       <StatusBar style="dark" />
       <BarraSuperior />
       <FlatList
+        style={{ width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center' }}
         data={creadores}
         keyExtractor={(c) => c.id}
         numColumns={columnas}
@@ -153,7 +159,7 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.pildora,
     backgroundColor: Marca.primarioTenue,
   },
-  textoVerPerfil: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primario },
+  textoVerPerfil: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Marca.primarioTexto },
   nombreCreador: { fontFamily: Tipografia.seminegrita, fontSize: 14, color: Colors.light.text, marginTop: 4 },
   vacio: { alignItems: 'center', paddingVertical: 48 },
   textoVacio: { fontFamily: Tipografia.media, fontSize: 15, color: Colors.light.textSecondary },
