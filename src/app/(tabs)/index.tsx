@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ import { useColecciones } from '@/lib/colecciones';
 import { useCuota } from '@/lib/cuota';
 import { dejarFotos, elegirDeGaleria, prepararFotos, tomarFoto } from '@/lib/fotos';
 import { useLista } from '@/lib/lista';
+import { agruparPorDia } from '@/lib/fechas';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
 import { dejarVideo, elegirVideo, MAX_MB, MAX_MINUTOS } from '@/lib/videos';
 import { useAncho } from '@/hooks/use-ancho';
@@ -77,6 +78,8 @@ export default function Biblioteca() {
   const pieLista = insets.bottom + 170; // aire para la barra flotante y el boton +
 
   const lista = (recetas.data ?? []).filter((r) => !soloFavoritas || r.is_favorite);
+  // Ya vienen de la mas nueva a la mas vieja: se agrupan por el dia en que se guardaron
+  const filas = useMemo(() => agruparPorDia(lista, 2), [lista]);
   const bibliotecaVacia = !recetas.isLoading && !busqueda.trim() && (recetas.data ?? []).length === 0;
 
   async function importarFoto(origen: 'galeria' | 'camara') {
@@ -164,13 +167,11 @@ export default function Biblioteca() {
             <EstadoVacio />
           ) : (
             <FlatList
-              data={lista}
-              keyExtractor={(r) => r.id}
-              initialNumToRender={6}
+              data={filas}
+              keyExtractor={(f) => f.clave}
+              initialNumToRender={8}
               windowSize={7}
               removeClippedSubviews={Platform.OS === 'android'}
-              numColumns={2}
-              columnWrapperStyle={{ gap: SEPARACION }}
               contentContainerStyle={{ paddingHorizontal: MARGEN, paddingBottom: pieLista, rowGap: 20 }}
               keyboardShouldPersistTaps="handled"
               refreshControl={<RefreshControl refreshing={recetas.isRefetching} onRefresh={recetas.refetch} colors={[Marca.primario]} />}
@@ -192,14 +193,26 @@ export default function Biblioteca() {
                   }
                 />
               }
-              renderItem={({ item }) => (
-                <TarjetaReceta
-                  receta={item}
-                  ancho={anchoTarjeta}
-                  alPulsar={() => router.push({ pathname: '/receta/[id]', params: { id: item.id } })}
-                  alFavorita={() => alternarFavorita.mutate({ id: item.id, favorita: !item.is_favorite })}
-                />
-              )}
+              renderItem={({ item: fila }) =>
+                fila.tipo === 'fecha' ? (
+                  // El dia en que se guardaron: asi una receta no se pierde entre muchas
+                  <Text style={estilos.fecha} maxFontSizeMultiplier={1.3} accessibilityRole="header">
+                    {fila.texto}
+                  </Text>
+                ) : (
+                  <View style={estilos.filaTarjetas}>
+                    {fila.recetas.map((r) => (
+                      <TarjetaReceta
+                        key={r.id}
+                        receta={r}
+                        ancho={anchoTarjeta}
+                        alPulsar={() => router.push({ pathname: '/receta/[id]', params: { id: r.id } })}
+                        alFavorita={() => alternarFavorita.mutate({ id: r.id, favorita: !r.is_favorite })}
+                      />
+                    ))}
+                  </View>
+                )
+              }
             />
           )
         ) : colecciones.isLoading ? (
@@ -458,6 +471,8 @@ function Mensaje({
 }
 
 const estilos = StyleSheet.create({
+  fecha: { fontFamily: Tipografia.media, fontSize: 13, color: Colors.light.textSecondary, marginTop: 4, marginBottom: -8, marginLeft: 2 },
+  filaTarjetas: { flexDirection: 'row', gap: SEPARACION },
   pantalla: { flex: 1, backgroundColor: FONDO },
 
   cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: MARGEN, paddingTop: 10, paddingBottom: 18 },
