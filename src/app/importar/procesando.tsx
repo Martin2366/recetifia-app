@@ -27,6 +27,7 @@ import {
   type Rescate as DatosRescate,
 } from '@/lib/importacion';
 import { recetaDesdeTexto } from '@/lib/importar';
+import { useMiPerfil } from '@/lib/perfil';
 import { useCrearReceta } from '@/lib/recetas';
 import { subirVideo, tomarVideoPendiente, VideoPesado } from '@/lib/videos';
 import { pedirResenaSiToca } from '@/lib/resena';
@@ -55,6 +56,7 @@ export default function Procesando() {
 
   const trabajo = useTrabajo(jobId);
   const cuota = useCuota();
+  const perfil = useMiPerfil();
   const colecciones = useColecciones();
   const crear = useCrearReceta();
   const [guardando, setGuardando] = useState(false);
@@ -232,6 +234,8 @@ export default function Procesando() {
         <VistaPrevia
           receta={receta}
           plus={cuota.data?.plus ?? false}
+          restantes={cuota.data?.importacionesRestantes}
+          tope={cuota.data?.tope}
           colecciones={colecciones.data ?? []}
           guardando={guardando}
           alGuardar={guardar}
@@ -242,8 +246,12 @@ export default function Procesando() {
         // Primero lo gratis, y Plus al final: nunca se deja a nadie sin salida
         <Estado
           icono="lock-outline"
-          titulo={`Ya usaste tus ${cuota.data?.tope ?? LIMITES.importacionesGratis} importaciones gratis`}
-          texto="Copia el texto de la publicación y pégalo aquí: eso es gratis y sin límite. Tus recetas guardadas siguen siendo tuyas."
+          titulo={
+            perfil.data?.recetas
+              ? `Ya guardaste ${perfil.data.recetas} ${perfil.data.recetas === 1 ? 'receta' : 'recetas'} con Recetifia 🎉`
+              : `Ya usaste tus ${cuota.data?.tope ?? LIMITES.importacionesGratis} importaciones gratis`
+          }
+          texto={`Usaste tus ${cuota.data?.tope ?? LIMITES.importacionesGratis} importaciones gratis de videos e imágenes. Copia el texto de la publicación y pégalo aquí: eso es gratis y sin límite. Tus recetas guardadas siguen siendo tuyas.`}
           boton={{ texto: 'Pegar el texto de la receta', alPulsar: () => router.replace('/importar/texto') }}
           secundario={{ texto: 'Escribirla a mano', alPulsar: aMano }}
           terciario={{ texto: 'Importar sin límite con Recetifia+', alPulsar: () => router.replace('/plus') }}

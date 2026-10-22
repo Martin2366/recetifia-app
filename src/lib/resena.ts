@@ -6,21 +6,24 @@ import { supabase } from './supabase';
 /**
  * Pedir la reseña de Google Play. Las reseñas de la competencia se quejan de
  * que la piden "antes de probar la app": aqui se pide una sola vez y recien
- * cuando la persona ya guardo 3 recetas importadas que le salieron bien.
+ * cuando la persona ya guardo 3 recetas importadas que le salieron bien, o
+ * justo despues de cocinar su primera receta con la app (`trasCocinar`).
  * Google Play decide ademas si muestra el dialogo; no se insiste nunca.
  */
 
 const CLAVE = 'recetifia:resena-pedida';
 const IMPORTACIONES_MINIMAS = 3;
 
-export async function pedirResenaSiToca() {
+export async function pedirResenaSiToca({ trasCocinar = false } = {}) {
   try {
     if ((await AsyncStorage.getItem(CLAVE)) === '1') return;
-    const { count, error } = await supabase
-      .from('import_jobs')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'done');
-    if (error || (count ?? 0) < IMPORTACIONES_MINIMAS) return;
+    if (!trasCocinar) {
+      const { count, error } = await supabase
+        .from('import_jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'done');
+      if (error || (count ?? 0) < IMPORTACIONES_MINIMAS) return;
+    }
     // Un build sin el modulo nativo (el de desarrollo) ni siquiera lo carga:
     // cargarlo lanza un error que la pantalla roja de desarrollo muestra igual
     if (!requireOptionalNativeModule('ExpoStoreReview')) return;

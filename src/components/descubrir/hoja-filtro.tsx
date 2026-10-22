@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,12 +24,23 @@ import { GRUPOS_INGREDIENTES, INGREDIENTES, partir, sinTildes, type Categoria, t
 
 import { FOTOS_INGREDIENTES } from './fotos-ingredientes';
 import { exito, toque } from '@/lib/haptica';
+import { useUsar, useUsos } from '@/lib/usos';
 
 /**
  * Hoja para filtrar por una categoria. Se pueden marcar varias opciones; el
  * boton dice en vivo cuantas recetas salen con todo lo elegido (esta hoja mas
  * los demas filtros activos y el texto) y se apaga si no sale ninguna.
+ *
+ * Buscar por ingredientes tiene cupo diario en el plan gratis: gasta una
+ * busqueda solo al aplicar un conjunto de ingredientes distinto del que ya se
+ * estaba viendo. Contar en vivo, cambiar otras categorias o volver atras no gasta.
  */
+
+const ingredientesDe = (filtros: string[]) =>
+  filtros
+    .filter((f) => partir(f).categoria === 'ing')
+    .sort()
+    .join(',');
 
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 
@@ -55,13 +67,19 @@ export function HojaFiltro({
   const [actual, setActual] = useState<Categoria | null>(categoria);
   const [elegidas, setElegidas] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState('');
+  const [sinCupo, setSinCupo] = useState(false);
+  const [gastando, setGastando] = useState(false);
   const abierta = useSharedValue(0);
+  const usos = useUsos();
+  const usar = useUsar();
+  const router = useRouter();
 
   useEffect(() => {
     if (categoria) {
       setActual(categoria);
       setElegidas(new Set(filtros.filter((f) => partir(f).categoria === categoria.id)));
       setBusqueda('');
+      setSinCupo(false);
       setMontada(true);
       abierta.value = withTiming(1, { duration: 380, easing: SUAVE });
     } else {
@@ -108,6 +126,23 @@ export function HojaFiltro({
   const q = sinTildes(busqueda.trim());
   const coincide = (o: OpcionFiltro) => !q || sinTildes(o.nombre).includes(q);
   const n = conteo.data;
+  const ingredientes = ingredientesDe(resultado);
+  const busquedaNueva = ingredientes !== '' && ingredientes !== ingredientesDe(filtros);
+  const restantes = usos.data && !usos.data.plus ? usos.data.busquedasRestantesHoy : null;
+
+  async function aplicar() {
+    if (busquedaNueva) {
+      setGastando(true);
+      const r = await usar('busqueda');
+      setGastando(false);
+      if (!r.permitido) {
+        setSinCupo(true);
+        return;
+      }
+    }
+    exito();
+    alAplicar(resultado);
+  }
 
   return (
     <Modal transparent visible statusBarTranslucent navigationBarTranslucent animationType="none" onRequestClose={alCerrar}>
@@ -184,6 +219,30 @@ export function HojaFiltro({
             ) : null}
           </ScrollView>
 
+          {sinCupo ? (
+            <View style={estilos.sinCupo}>
+              <Text style={estilos.tituloSinCupo}>Usaste tus búsquedas por ingredientes de hoy</Text>
+              <Text style={estilos.textoSinCupo}>
+                Mañana tienes {usos.data?.topeBusquedas ?? 3} más. Con Recetifia+ buscas sin límite. Buscar por nombre sigue libre.
+              </Text>
+              <Pressable
+                onPress={() => {
+                  alCerrar();
+                  router.push('/plus');
+                }}
+                accessibilityRole="button"
+                style={estilos.verPlus}>
+                <Text style={estilos.textoVerPlus}>Ver Recetifia+</Text>
+              </Pressable>
+            </View>
+          ) : actual.id === 'ing' && restantes != null ? (
+            <Text style={estilos.cupo}>
+              {restantes > 0
+                ? `Te quedan ${restantes} ${restantes === 1 ? 'búsqueda' : 'búsquedas'} por ingredientes hoy`
+                : 'Hoy ya usaste tus búsquedas por ingredientes'}
+            </Text>
+          ) : null}
+
           <View style={[estilos.pie, { paddingBottom: insets.bottom + 12 }]}>
             <Pressable
               onPress={() => setElegidas(new Set())}
@@ -193,14 +252,11 @@ export function HojaFiltro({
               <Text style={estilos.textoLimpiar}>Limpiar{elegidas.size ? ` (${elegidas.size})` : ''}</Text>
             </Pressable>
             <Pressable
-              onPress={() => {
-                exito();
-                alAplicar(resultado);
-              }}
-              disabled={n === 0}
+              onPress={aplicar}
+              disabled={n === 0 || gastando}
               accessibilityRole="button"
               style={[estilos.aplicar, n === 0 && estilos.aplicarApagado]}>
-              {n == null ? (
+              {n == null || gastando ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={estilos.textoAplicar}>{n === 0 ? 'Sin recetas' : n === 1 ? 'Ver 1 receta' : `Ver ${n} recetas`}</Text>
@@ -322,6 +378,12 @@ const estilos = StyleSheet.create({
   casillaMarcada: { backgroundColor: Marca.primario, borderColor: Marca.primario },
   nada: { textAlign: 'center', fontFamily: Tipografia.media, fontSize: 15, color: Colors.light.textSecondary, marginTop: 24 },
 
+  cupo: { textAlign: 'center', fontFamily: Tipografia.media, fontSize: 13, color: Colors.light.textSecondary, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F1ECE9' },
+  sinCupo: { gap: 6, padding: 16, borderTopWidth: 1, borderTopColor: '#F1ECE9', backgroundColor: '#FFF7F3' },
+  tituloSinCupo: { fontFamily: Tipografia.seminegrita, fontSize: 16, color: Colors.light.text, textAlign: 'center' },
+  textoSinCupo: { fontFamily: Tipografia.regular, fontSize: 14, lineHeight: 20, color: Colors.light.textSecondary, textAlign: 'center' },
+  verPlus: { alignSelf: 'center', marginTop: 4, paddingHorizontal: 22, paddingVertical: 10, borderRadius: Radios.pildora, borderWidth: 1.5, borderColor: Marca.primario },
+  textoVerPlus: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Marca.primarioTexto },
   pie: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1ECE9', backgroundColor: '#FFFFFF' },
   limpiar: { flex: 1, minHeight: 54, borderRadius: Radios.pildora, backgroundColor: '#F4EEEA', alignItems: 'center', justifyContent: 'center' },
   textoLimpiar: { fontFamily: Tipografia.seminegrita, fontSize: 16, color: Colors.light.text },

@@ -4,7 +4,8 @@
 // de la competencia lo dejan claro: si no funciona, se siente como un robo de
 // datos. Todas las tablas del usuario cuelgan de auth.users con on delete
 // cascade, asi que basta con borrar el usuario. Las fotos importadas viven en
-// la cache compartida (por hash de la URL), no por usuario: no se tocan.
+// la cache compartida (por hash de la URL), no por usuario: no se tocan. La
+// foto de perfil (recetas/avatares/{id}) si se borra.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -28,6 +29,11 @@ Deno.serve(async (req) => {
   const { data } = await admin.auth.getUser(token);
   const usuario = data?.user;
   if (!usuario) return json({ error: 'sesion' }, 401);
+
+  // La foto de perfil si es de la persona: se va con la cuenta
+  const carpeta = `avatares/${usuario.id}`;
+  const { data: fotos } = await admin.storage.from('recetas').list(carpeta);
+  if (fotos?.length) await admin.storage.from('recetas').remove(fotos.map((f) => `${carpeta}/${f.name}`));
 
   const { error } = await admin.auth.admin.deleteUser(usuario.id);
   if (error) {

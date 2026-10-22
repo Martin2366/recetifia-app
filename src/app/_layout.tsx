@@ -20,11 +20,14 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Appearance, StyleSheet, View } from 'react-native';
+import { Appearance, AppState, StyleSheet, View } from 'react-native';
 
 import { ErrorAmable } from '@/components/error-amable';
+import { OfertaRecordatorios } from '@/components/oferta-recordatorios';
 import { Colors, Marca } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { renovacionAnual } from '@/lib/compras';
+import { alTocarNotificacion, programarAvisoRenovacion, reprogramarRecordatorios } from '@/lib/notificaciones';
 import { vioBienvenida } from '@/lib/preferencias';
 
 SplashScreen.preventAutoHideAsync();
@@ -105,6 +108,37 @@ function Guardian({ children, listo }: { children: ReactNode; listo: boolean }) 
   return <>{children}</>;
 }
 
+/**
+ * Recordatorios al dia: se reprograman al entrar y cada vez que se vuelve a la
+ * app. Tocar una notificacion abre la pantalla que trae.
+ */
+function Notificaciones() {
+  const { session } = useAuth();
+  const router = useRouter();
+  const uid = session?.user.id;
+
+  useEffect(() => {
+    if (!uid) return;
+    const alDia = () => {
+      reprogramarRecordatorios();
+      renovacionAnual().then(programarAvisoRenovacion);
+    };
+    alDia();
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') alDia();
+    });
+    return () => sub.remove();
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    // La ruta llega como texto desde la notificacion; las rutas tipadas no la conocen
+    return alTocarNotificacion((url) => router.push(url as never));
+  }, [uid, router]);
+
+  return null;
+}
+
 export default function RootLayout() {
   const [fuentesListas, errorFuentes] = useFonts({
     Inter_400Regular,
@@ -134,6 +168,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="receta/[id]" options={{ headerShown: true, title: '' }} />
               <Stack.Screen name="receta/nueva" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="receta/cocinar/[id]" options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="coleccion/[id]" />
               <Stack.Screen name="importar/texto" options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="importar/web" options={{ animation: 'slide_from_bottom' }} />
@@ -145,6 +180,8 @@ export default function RootLayout() {
               <Stack.Screen name="descubrir/buscar" options={{ animation: 'fade' }} />
               <Stack.Screen name="descubrir/resultados" />
             </Stack>
+            <Notificaciones />
+            <OfertaRecordatorios />
           </Guardian>
         </ThemeProvider>
       </AuthProvider>

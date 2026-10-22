@@ -17,6 +17,8 @@ export type Plan = {
   precio: string;
   /** Solo en el anual: lo que sale al mes. */
   precioMensual?: string;
+  /** Solo en el anual: cuanto ahorra frente a doce meses del mensual, ya con %. */
+  ahorro?: string;
 };
 
 /** Mismo derecho (entitlement) que se configure en el panel de RevenueCat. */
@@ -29,12 +31,16 @@ const DERECHO_PLUS = 'plus';
  * gratis ya sirve para probar la app de verdad.
  */
 export const PLANES_RESPALDO: Record<IdPlan, Plan> = {
-  anual: { id: 'anual', precio: 'US$14,99', precioMensual: 'US$1,25' },
-  mensual: { id: 'mensual', precio: 'US$2,49' },
+  anual: { id: 'anual', precio: 'US$16,99', precioMensual: 'US$1,42', ahorro: '52%' },
+  mensual: { id: 'mensual', precio: 'US$2,99' },
 };
 
-/** Descuento del anual frente a pagar doce meses (14,99 frente a 29,88). */
-export const AHORRO_ANUAL = '50%';
+/** Descuento del anual frente a doce meses, con los precios reales de la tienda. */
+export function calcularAhorro(anual: number, mensual: number): string | undefined {
+  if (!(anual > 0) || !(mensual > 0)) return undefined;
+  const ahorro = Math.floor((1 - anual / (mensual * 12)) * 100);
+  return ahorro > 0 ? `${ahorro}%` : undefined;
+}
 
 /** Pagina de Google Play donde se ve, cambia o cancela la suscripcion. */
 export function abrirGestionDeSuscripcion() {
@@ -110,9 +116,15 @@ export async function cargarPlanes(): Promise<Record<IdPlan, Plan>> {
     if (!actual?.annual || !actual.monthly) return PLANES_RESPALDO;
     paquetes = { anual: actual.annual, mensual: actual.monthly };
     const anual = actual.annual.product;
+    const mensual = actual.monthly.product;
     return {
-      anual: { id: 'anual', precio: anual.priceString, precioMensual: anual.pricePerMonthString ?? undefined },
-      mensual: { id: 'mensual', precio: actual.monthly.product.priceString },
+      anual: {
+        id: 'anual',
+        precio: anual.priceString,
+        precioMensual: anual.pricePerMonthString ?? undefined,
+        ahorro: calcularAhorro(anual.price, mensual.price),
+      },
+      mensual: { id: 'mensual', precio: mensual.priceString },
     };
   } catch {
     return PLANES_RESPALDO;
@@ -142,6 +154,22 @@ export async function tienePlus(): Promise<boolean> {
     return Boolean(info.entitlements.active[DERECHO_PLUS]);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Cuando se renueva el plan anual, si se va a renovar. Null con el mensual,
+ * con la renovacion cancelada o sin Plus: para el aviso honesto de 7 dias antes.
+ */
+export async function renovacionAnual(): Promise<Date | null> {
+  const p = sdk();
+  if (!p) return null;
+  try {
+    const plus = (await p.getCustomerInfo()).entitlements.active[DERECHO_PLUS];
+    if (!plus?.willRenew || !plus.expirationDate || !plus.productIdentifier.includes('anual')) return null;
+    return new Date(plus.expirationDate);
+  } catch {
+    return null;
   }
 }
 

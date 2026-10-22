@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
+import { cancelarTodo } from './notificaciones';
+import { CLAVE_OFRECIO_RECORDATORIOS, CLAVE_RECORDATORIOS } from './preferencias';
 import { supabase } from './supabase';
 import type { BorradorReceta } from './tipos';
 
@@ -170,10 +172,12 @@ export async function subirPendientes(): Promise<number> {
 /** Al borrar la cuenta: nada de ella queda en el telefono. */
 export async function limpiarLocales() {
   try {
-    await AsyncStorage.multiRemove([CLAVE_BORRADORES, CLAVE_PENDIENTES]);
+    await AsyncStorage.multiRemove([CLAVE_BORRADORES, CLAVE_PENDIENTES, CLAVE_RECORDATORIOS, CLAVE_OFRECIO_RECORDATORIOS]);
   } catch {
     // nada que hacer
   }
+  // Ningun recordatorio de una cuenta borrada debe llegar despues
+  await cancelarTodo();
 }
 
 // --- hooks --------------------------------------------------------------------

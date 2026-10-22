@@ -57,6 +57,14 @@ export function useReceta(id: string | undefined) {
  */
 export type Guardado = { id: string; enCola: boolean };
 
+/** Quien quiera enterarse de que se guardo una receta nueva (la oferta de recordatorios). */
+const oyentesGuardado = new Set<() => void>();
+
+export function alGuardarReceta(fn: () => void): () => void {
+  oyentesGuardado.add(fn);
+  return () => oyentesGuardado.delete(fn);
+}
+
 export function useCrearReceta() {
   const qc = useQueryClient();
   return useMutation({
@@ -75,6 +83,8 @@ export function useCrearReceta() {
       qc.invalidateQueries({ queryKey: clavesRecetas.todas });
       qc.invalidateQueries({ queryKey: claveCuota });
       qc.invalidateQueries({ queryKey: claveLocales });
+      qc.invalidateQueries({ queryKey: ['perfil'] });
+      oyentesGuardado.forEach((fn) => fn());
     },
   });
 }

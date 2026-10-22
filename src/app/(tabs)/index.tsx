@@ -31,6 +31,7 @@ import { useCuota } from '@/lib/cuota';
 import { dejarFotos, elegirDeGaleria, prepararFotos, tomarFoto } from '@/lib/fotos';
 import { useLista } from '@/lib/lista';
 import { agruparPorDia } from '@/lib/fechas';
+import { useMiPerfil } from '@/lib/perfil';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
 import { dejarVideo, elegirVideo, MAX_MB, MAX_MINUTOS } from '@/lib/videos';
 import { useAncho } from '@/hooks/use-ancho';
@@ -272,8 +273,11 @@ function Cabecera({
 }) {
   const { session } = useAuth();
   const refCuota = useObjetivoGuia('cuota');
+  const perfil = useMiPerfil();
   const meta = session?.user.user_metadata ?? {};
-  const foto = (meta.avatar_url ?? meta.picture) as string | undefined;
+  const foto = perfil.data?.avatar ?? ((meta.avatar_url ?? meta.picture) as string | undefined);
+  // Con pocas importaciones gratis el chip se pinta: se avisa antes de llegar a cero
+  const quedanPocas = !plus && restantes !== undefined && restantes <= 3;
   const nombre = (meta.full_name ?? meta.name ?? session?.user.email ?? '') as string;
 
   return (
@@ -293,9 +297,11 @@ function Cabecera({
             onPress={alPulsarCuota}
             accessibilityRole="button"
             accessibilityLabel={plus ? 'Tienes Recetifia Plus' : `Te quedan ${restantes} importaciones gratis de videos e imágenes`}
-            style={({ pressed }) => [estilos.chip, pressed && { opacity: 0.8 }]}>
-            <MaterialCommunityIcons name={plus ? 'crown' : 'lightning-bolt'} size={18} color={Marca.primario} />
-            <Text style={estilos.textoChip}>{plus ? 'Plus' : `${restantes} restantes`}</Text>
+            style={({ pressed }) => [estilos.chip, quedanPocas && estilos.chipPocas, pressed && { opacity: 0.8 }]}>
+            <MaterialCommunityIcons name={plus ? 'crown' : 'lightning-bolt'} size={18} color={quedanPocas ? '#FFFFFF' : Marca.primario} />
+            <Text style={[estilos.textoChip, quedanPocas && { color: '#FFFFFF' }]}>
+              {plus ? 'Plus' : quedanPocas ? `Quedan ${restantes} gratis` : `${restantes} restantes`}
+            </Text>
           </Pressable>
         ) : null}
         <Pressable onPress={alPulsarPerfil} accessibilityRole="button" accessibilityLabel="Tu perfil" style={estilos.avatar}>
@@ -492,6 +498,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EDE5E0',
   },
+  chipPocas: { backgroundColor: Marca.primario, borderColor: Marca.primario },
   textoChip: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text },
   avatar: {
     width: 42,

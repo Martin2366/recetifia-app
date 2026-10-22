@@ -19,8 +19,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { MarcaPlus } from '@/components/onboarding/formas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
-import { AHORRO_ANUAL, cargarPlanes, comprar, PLANES_RESPALDO, restaurarCompras, type IdPlan, type Plan } from '@/lib/compras';
+import { cargarPlanes, comprar, PLANES_RESPALDO, renovacionAnual, restaurarCompras, type IdPlan, type Plan } from '@/lib/compras';
+import { programarAvisoRenovacion } from '@/lib/notificaciones';
 import { claveCuota } from '@/lib/cuota';
+import { claveUsos } from '@/lib/usos';
 
 /**
  * Paywall blando. Ya no forma parte del onboarding: solo se abre desde la app,
@@ -30,11 +32,13 @@ import { claveCuota } from '@/lib/cuota';
 
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1);
 
-/** Lo mas valioso de Plus, en tres lineas. */
-// Solo lo que existe de verdad. Recetas, colecciones, fotos, porciones y el
-// modo cocina ya son gratis: Plus no puede venderlos.
+/** Lo que suma Plus. */
+// Solo lo que existe de verdad. Recetas, colecciones, fotos, porciones, el plan
+// y la lista ya son gratis y sin tope: Plus no puede venderlos.
 const INCLUYE = [
-  'Importa videos e imágenes sin preocuparte del tope gratis',
+  'Importa videos e imágenes sin tope',
+  'Modo cocina con temporizadores, sin límite',
+  'Busca por ingredientes sin límite',
   'Información nutricional de cada receta',
   'Apoyas una app hecha para Latinoamérica',
 ];
@@ -74,6 +78,7 @@ export default function Paywall() {
 
   function salir() {
     qc.invalidateQueries({ queryKey: claveCuota });
+    qc.invalidateQueries({ queryKey: claveUsos });
     router.back();
   }
 
@@ -83,6 +88,7 @@ export default function Paywall() {
     const resultado = await comprar(elegido);
     setComprando(false);
     if (resultado === 'comprado') {
+      renovacionAnual().then(programarAvisoRenovacion);
       salir();
     } else if (resultado === 'demostracion') {
       Alert.alert('Modo demostración', 'Las compras se activan cuando conectemos RevenueCat y Google Play. Por ahora sigues sin pagar.', [
@@ -117,9 +123,9 @@ export default function Paywall() {
         <Animated.View style={[estilos.contenido, estiloContenido]}>
           <MarcaPlus />
           <Text style={estilos.titulo} accessibilityRole="header">
-            Importa <Text style={estilos.resalte}>sin límites</Text>
+            Cocina <Text style={estilos.resalte}>sin límites</Text>
           </Text>
-          <Text style={estilos.subtitulo}>Recetifia sigue siendo gratis. Plus es para quien importa mucho.</Text>
+          <Text style={estilos.subtitulo}>Recetifia sigue siendo gratis. Plus es para quien cocina seguido con la app.</Text>
 
           <View style={estilos.incluye}>
             {INCLUYE.map((t) => (
@@ -135,7 +141,7 @@ export default function Paywall() {
               elegido={elegido === 'anual'}
               alPulsar={() => setElegido('anual')}
               titulo="Anual"
-              insignia={`AHORRA ${AHORRO_ANUAL}`}
+              insignia={anual.ahorro ? `AHORRA ${anual.ahorro}` : undefined}
               precio={`${anual.precioMensual}/mes`}
               detalle={`${anual.precio} al año`}
             />

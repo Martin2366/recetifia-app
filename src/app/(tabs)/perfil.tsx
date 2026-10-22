@@ -1,17 +1,22 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGuia } from '@/components/guia/guia';
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
 import { CuentaEnUso, InicioCancelado, useAuth } from '@/lib/auth';
+import { useEstadisticasCocina } from '@/lib/cocinadas';
 import { abrirGestionDeSuscripcion, LIMITES, restaurarCompras } from '@/lib/compras';
 import { claveCuota, useCuota } from '@/lib/cuota';
 import { abrirLegal } from '@/lib/legal';
+import { notificacionesDisponibles, pedirPermiso, reprogramarRecordatorios } from '@/lib/notificaciones';
+import { useCambiarAvatar, useMiPerfil } from '@/lib/perfil';
+import { guardarRecordatorios, HORAS_COCINA, leerRecordatorios, type Recordatorios } from '@/lib/preferencias';
 
 const FONDO = '#F7F2EE';
 
@@ -24,8 +29,19 @@ export default function Perfil() {
   const qc = useQueryClient();
   const cuota = useCuota();
   const guia = useGuia();
+  const perfil = useMiPerfil();
+  const cocina = useEstadisticasCocina();
+  const cambiarAvatar = useCambiarAvatar();
   const plus = cuota.data?.plus ?? false;
   const [ocupado, setOcupado] = useState<Ocupado>(null);
+
+  async function elegirFoto() {
+    try {
+      await cambiarAvatar.mutateAsync();
+    } catch (err) {
+      Alert.alert('No pudimos cambiar la foto', err instanceof Error ? err.message : 'Inténtalo de nuevo en un momento.');
+    }
+  }
 
   // Quien pago en otro telefono o reinstalo recupera Plus sin escribir a nadie
   function restaurar() {
@@ -115,34 +131,67 @@ export default function Perfil() {
         Perfil
       </Text>
 
-      {anonima ? (
-        <View style={estilos.tarjeta}>
-          <View style={estilos.icono}>
-            <MaterialCommunityIcons name="cellphone-lock" size={24} color={Marca.primario} />
-          </View>
-          <Text style={estilos.tituloTarjeta}>Tus recetas están solo en este teléfono</Text>
-          <Text style={estilos.texto}>
-            Usas Recetifia sin cuenta, y está bien. Si cambias o pierdes el teléfono, las recetas se van con él. Respáldalas
-            con Google y no pierdes nada de lo que ya guardaste.
-          </Text>
-          {ocupado === 'respaldo' ? (
-            <View style={estilos.cargando}>
-              <ActivityIndicator color="#FFFFFF" />
+      <View style={estilos.tarjeta}>
+        <View style={estilos.filaCuenta}>
+          <Pressable
+            onPress={elegirFoto}
+            disabled={cambiarAvatar.isPending}
+            accessibilityRole="button"
+            accessibilityLabel="Cambiar foto de perfil"
+            style={estilos.avatar}>
+            {perfil.data?.avatar ? (
+              <Image source={{ uri: perfil.data.avatar }} style={estilos.avatarFoto} contentFit="cover" transition={200} />
+            ) : (
+              <MaterialCommunityIcons name="chef-hat" size={34} color={Marca.primario} />
+            )}
+            <View style={estilos.camara}>
+              {cambiarAvatar.isPending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <MaterialCommunityIcons name="camera" size={14} color="#FFFFFF" />
+              )}
             </View>
-          ) : (
-            <BotonOnboarding texto="Respaldar con Google" alPulsar={respaldar} apagado={ocupado !== null} />
-          )}
-        </View>
-      ) : (
-        <View style={estilos.tarjeta}>
-          <Text style={estilos.tituloTarjeta}>{nombre}</Text>
-          {usuario?.email ? <Text style={estilos.texto}>{usuario.email}</Text> : null}
-          <View style={estilos.respaldada}>
-            <MaterialCommunityIcons name="cloud-check-outline" size={18} color={Marca.exito} />
-            <Text style={estilos.textoRespaldada}>Recetas respaldadas en tu cuenta</Text>
+          </Pressable>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={estilos.tituloTarjeta} numberOfLines={1}>
+              {anonima ? 'Tu cocina' : nombre}
+            </Text>
+            {anonima ? (
+              <Text style={estilos.texto}>Sin cuenta · solo en este teléfono</Text>
+            ) : (
+              <View style={estilos.respaldada}>
+                <MaterialCommunityIcons name="cloud-check-outline" size={18} color={Marca.exito} />
+                <Text style={estilos.textoRespaldada}>Recetas respaldadas</Text>
+              </View>
+            )}
           </View>
         </View>
-      )}
+
+        {/* Lo primero que se ve: sin respaldo, cambiar de telefono es perderlo todo */}
+        {anonima ? (
+          <View style={estilos.respaldo}>
+            <View style={estilos.filaRespaldo}>
+              <MaterialCommunityIcons name="cellphone-lock" size={22} color={Marca.primarioTexto} />
+              <Text style={estilos.textoRespaldo}>
+                Si cambias o pierdes el teléfono, tus recetas se van con él. Respáldalas con Google y guarda tu progreso.
+              </Text>
+            </View>
+            {ocupado === 'respaldo' ? (
+              <View style={estilos.cargando}>
+                <ActivityIndicator color="#FFFFFF" />
+              </View>
+            ) : (
+              <BotonOnboarding texto="Respaldar con Google" alPulsar={respaldar} apagado={ocupado !== null} />
+            )}
+          </View>
+        ) : null}
+      </View>
+
+      <View style={estilos.estadisticas}>
+        <Estadistica numero={perfil.data?.recetas} texto="recetas guardadas" icono="bookmark-outline" />
+        <Estadistica numero={cocina.data?.total} texto="recetas cocinadas" icono="pot-steam-outline" />
+        <Estadistica numero={cocina.data?.esteMes} texto="cocinadas este mes" icono="calendar-check-outline" />
+      </View>
 
       <Text style={estilos.seccion}>Tu plan</Text>
       <View style={estilos.tarjeta}>
@@ -152,10 +201,10 @@ export default function Perfil() {
         </View>
         <Text style={estilos.texto}>
           {plus
-            ? 'Importaciones sin límite e información nutricional. Si cancelas, sigues con Plus hasta el final de lo que pagaste.'
-            : `Todo gratis y sin límite, salvo importar videos e imágenes: ${cuota.data?.tope ?? LIMITES.importacionesGratis} en total.${
-                cuota.data ? ` Te quedan ${cuota.data.importacionesRestantes}.` : ''
-              }`}
+            ? 'Importaciones, modo cocina y búsquedas por ingredientes sin límite, e información nutricional. Si cancelas, sigues con Plus hasta el final de lo que pagaste.'
+            : `Guardar, organizar, el plan y la lista son gratis y sin límite. Con tope: importar videos e imágenes (${
+                cuota.data?.tope ?? LIMITES.importacionesGratis
+              } en total${cuota.data ? `, te quedan ${cuota.data.importacionesRestantes}` : ''}), el modo cocina (3 sesiones) y la búsqueda por ingredientes (3 al día).`}
         </Text>
       </View>
       <View style={estilos.lista}>
@@ -167,6 +216,8 @@ export default function Perfil() {
         <View style={estilos.separador} />
         <Opcion icono="restore" texto="Restaurar compra" alPulsar={restaurar} ocupado={ocupado === 'restaurar'} apagado={ocupado !== null} />
       </View>
+
+      <SeccionRecordatorios />
 
       <Text style={estilos.seccion}>Cuenta</Text>
       <View style={estilos.lista}>
@@ -201,6 +252,87 @@ export default function Perfil() {
         <Opcion icono="file-document-outline" texto="Términos de uso" alPulsar={() => abrirLegal('terminos')} ocupado={false} apagado={false} />
       </View>
     </ScrollView>
+  );
+}
+
+function Estadistica({
+  numero,
+  texto,
+  icono,
+}: {
+  numero: number | undefined;
+  texto: string;
+  icono: keyof typeof MaterialCommunityIcons.glyphMap;
+}) {
+  return (
+    <View style={estilos.estadistica}>
+      <MaterialCommunityIcons name={icono} size={20} color={Marca.primario} />
+      <Text style={estilos.numero}>{numero ?? '–'}</Text>
+      <Text style={estilos.textoEstadistica}>{texto}</Text>
+    </View>
+  );
+}
+
+/** Recordatorios locales: activar y elegir la hora. Solo donde hay notificaciones (Android). */
+function SeccionRecordatorios() {
+  const [prefs, setPrefs] = useState<Recordatorios | null>(null);
+
+  useEffect(() => {
+    leerRecordatorios().then(setPrefs);
+  }, []);
+
+  if (!prefs || !notificacionesDisponibles()) return null;
+
+  async function cambiar(nuevas: Recordatorios) {
+    if (nuevas.activos && !prefs!.activos && !(await pedirPermiso())) {
+      Alert.alert('Notificaciones desactivadas', 'Para recibir recordatorios, permite las notificaciones de Recetifia en los ajustes del teléfono.', [
+        { text: 'Ahora no', style: 'cancel' },
+        { text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
+      ]);
+      return;
+    }
+    setPrefs(nuevas);
+    await guardarRecordatorios(nuevas);
+    reprogramarRecordatorios();
+  }
+
+  return (
+    <>
+      <Text style={estilos.seccion}>Recordatorios</Text>
+      <View style={estilos.tarjeta}>
+        <View style={estilos.filaInterruptor}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={estilos.textoOpcion}>Ideas para cocinar</Text>
+            <Text style={estilos.texto}>4 días a la semana, con recetas que guardaste y todavía no cocinas.</Text>
+          </View>
+          <Switch
+            value={prefs.activos}
+            onValueChange={(activos) => cambiar({ ...prefs, activos })}
+            trackColor={{ true: Marca.primario, false: '#D5D9D9' }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+        {prefs.activos ? (
+          <View style={estilos.horas}>
+            {HORAS_COCINA.map((h) => {
+              const elegida = prefs.hora === h.id;
+              return (
+                <Pressable
+                  key={h.id}
+                  onPress={() => cambiar({ ...prefs, hora: h.id })}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: elegida }}
+                  style={[estilos.hora, elegida && estilos.horaElegida]}>
+                  <Text style={[estilos.textoHora, elegida && { color: Marca.primarioTexto }]}>
+                    {h.emoji} {h.texto}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+      </View>
+    </>
   );
 }
 
@@ -258,6 +390,49 @@ const estilos = StyleSheet.create({
   texto: { fontFamily: Tipografia.regular, fontSize: 15, lineHeight: 22, color: Colors.light.textSecondary },
   cargando: { minHeight: 56, borderRadius: Radios.pildora, backgroundColor: Marca.primario, alignItems: 'center', justifyContent: 'center' },
   respaldada: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  filaCuenta: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Marca.primarioTenue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFoto: { width: 72, height: 72, borderRadius: 36 },
+  camara: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: Marca.primario,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  respaldo: { gap: 12, padding: 14, marginTop: 4, borderRadius: Radios.medio, backgroundColor: '#FFF7F3', borderWidth: 1, borderColor: Marca.primarioTenue },
+  filaRespaldo: { flexDirection: 'row', gap: 10 },
+  textoRespaldo: { flex: 1, fontFamily: Tipografia.media, fontSize: 14, lineHeight: 20, color: Colors.light.text },
+  estadisticas: { flexDirection: 'row', gap: 10 },
+  estadistica: {
+    flex: 1,
+    gap: 2,
+    padding: 14,
+    borderRadius: Radios.medio + 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EDE5E0',
+  },
+  numero: { fontFamily: Tipografia.display, fontSize: 26, color: Colors.light.text, marginTop: 4 },
+  textoEstadistica: { fontFamily: Tipografia.media, fontSize: 12, lineHeight: 16, color: Colors.light.textSecondary },
+  filaInterruptor: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  horas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  hora: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radios.pildora, borderWidth: 1.5, borderColor: '#EDE5E0' },
+  horaElegida: { borderColor: Marca.primario, backgroundColor: Marca.primarioTenue },
+  textoHora: { fontFamily: Tipografia.media, fontSize: 14, color: Colors.light.text },
   textoRespaldada: { fontFamily: Tipografia.media, fontSize: 14, color: Colors.light.textSecondary },
 
   seccion: { fontFamily: Tipografia.seminegrita, fontSize: 13, letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.light.textSecondary, marginBottom: -8, marginLeft: 4 },

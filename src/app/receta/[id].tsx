@@ -17,6 +17,7 @@ import {
 import { TarjetaNutricion } from '@/components/nutricion';
 import { PantallaVacia } from '@/components/pantalla-vacia';
 import { HojaPlan } from '@/components/plan/hoja-plan';
+import { BotonCocinada } from '@/components/receta/boton-cocinada';
 import { ThemedText } from '@/components/themed-text';
 import { VideoReceta } from '@/components/video-receta';
 import { Colors, Marca, MaxContentWidth, Spacing, Tipografia } from '@/constants/theme';
@@ -24,6 +25,7 @@ import { useCuota } from '@/lib/cuota';
 import { textoIngredienteEscalado } from '@/lib/porciones';
 import { itemDesdeIngrediente, useAgregarALista } from '@/lib/lista';
 import { useBorrarReceta, useReceta } from '@/lib/recetas';
+import { useUsar, useUsos } from '@/lib/usos';
 
 /** Atajos de porciones: lo que la gente piensa ("somos 4"), no un numero suelto. */
 const ATAJOS = [
@@ -42,6 +44,9 @@ export default function DetalleReceta() {
   const cuota = useCuota();
   const borrar = useBorrarReceta();
   const agregarALista = useAgregarALista();
+  const usos = useUsos();
+  const usar = useUsar();
+  const [entrando, setEntrando] = useState(false);
 
   const [porciones, setPorciones] = useState<number | null>(null);
   const [hechos, setHechos] = useState<Set<string>>(new Set());
@@ -101,6 +106,29 @@ export default function DetalleReceta() {
       Alert.alert('No se agregaron', 'Revisa tu conexión e inténtalo de nuevo.');
     }
   }
+
+  // El plan gratis trae algunas sesiones del modo cocina; se avisa antes cuantas
+  // quedan y, si no quedan, la receta sigue completa aqui mismo
+  async function cocinar() {
+    if (entrando) return;
+    setEntrando(true);
+    const r = await usar('cocina', receta!.id);
+    setEntrando(false);
+    if (r.permitido) {
+      router.push({ pathname: '/receta/cocinar/[id]', params: { id: receta!.id, porciones: String(porcionesActuales ?? '') } });
+      return;
+    }
+    Alert.alert(
+      'Usaste tus sesiones gratis del modo cocina',
+      `El plan gratis incluye ${r.tope ?? 3}. La receta sigue completa en esta pantalla: con Recetifia+ cocinas paso a paso y con temporizadores sin límite.`,
+      [
+        { text: 'Seguir con la receta', style: 'cancel' },
+        { text: 'Ver Recetifia+', onPress: () => router.push('/plus') },
+      ]
+    );
+  }
+
+  const restantesCocina = usos.data && !usos.data.plus ? usos.data.cocinasRestantes : null;
 
   function alternarPaso(idPaso: string) {
     setHechos((previos) => {
@@ -238,6 +266,32 @@ export default function DetalleReceta() {
           </View>
         )}
 
+        {receta.ingredientes.length || receta.pasos.length ? (
+          <View style={{ gap: Spacing.one }}>
+            <Pressable
+              onPress={cocinar}
+              disabled={entrando}
+              accessibilityRole="button"
+              style={({ pressed }) => [estilos.cocinar, (pressed || entrando) && { opacity: 0.8 }]}>
+              {entrando ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialIcons name="soup-kitchen" size={22} color="#FFFFFF" />
+                  <ThemedText style={estilos.textoCocinar}>Cocinar</ThemedText>
+                </>
+              )}
+            </Pressable>
+            {restantesCocina != null ? (
+              <ThemedText type="small" style={estilos.cupo}>
+                {restantesCocina > 0
+                  ? `Paso a paso con temporizadores · te quedan ${restantesCocina} de ${usos.data?.topeCocinas ?? 3} gratis`
+                  : 'Paso a paso con temporizadores · incluido en Recetifia+'}
+              </ThemedText>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* Ingredientes */}
         <View style={estilos.seccion}>
           <ThemedText type="subtitle">Ingredientes</ThemedText>
@@ -313,6 +367,8 @@ export default function DetalleReceta() {
           )}
         </View>
 
+        <BotonCocinada recipeId={receta.id} />
+
         {receta.source_url ? (
           <Pressable
             onPress={() => Linking.openURL(receta.source_url!)}
@@ -363,6 +419,17 @@ const estilos = StyleSheet.create({
     borderColor: Marca.primario,
   },
   textoAnadirPlan: { color: Marca.primario, fontWeight: '600' },
+  cocinar: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: 999,
+    backgroundColor: Marca.primario,
+  },
+  textoCocinar: { color: '#FFFFFF', fontFamily: Tipografia.seminegrita, fontSize: 18 },
+  cupo: { textAlign: 'center', color: Colors.light.textSecondary },
   reintentar: { marginTop: Spacing.three, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 999, backgroundColor: Marca.primario },
   textoReintentar: { color: '#FFFFFF', fontWeight: '600' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },

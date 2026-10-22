@@ -31,9 +31,14 @@ export function VistaPrevia({
   alGuardar,
   alEditar,
   alCancelar,
+  restantes,
+  tope,
 }: {
   receta: RecetaImportada;
   plus: boolean;
+  /** Importaciones gratis que quedan despues de esta; se avisa con 3 o menos. */
+  restantes?: number;
+  tope?: number;
   colecciones: ColeccionConConteo[];
   guardando: boolean;
   alGuardar: (coleccionId: string | null) => void;
@@ -82,6 +87,18 @@ export function VistaPrevia({
             </Pressable>
           </View>
         </View>
+
+        {/* Solo informa: nunca bloquea ni sorprende al llegar a cero */}
+        {!plus && restantes != null && restantes <= 3 ? (
+          <View style={estilos.cuota}>
+            <MaterialCommunityIcons name="lightning-bolt" size={18} color={Marca.primarioTexto} />
+            <Text style={estilos.textoCuota}>
+              {restantes === 0
+                ? `Esta fue tu última importación gratis de ${tope ?? 10}. Pegar el texto sigue siendo gratis.`
+                : `Te ${restantes === 1 ? 'queda 1 importación gratis' : `quedan ${restantes} importaciones gratis`} de ${tope ?? 10}.`}
+            </Text>
+          </View>
+        ) : null}
 
         {avisoVisible && (desdeWebCreador || parcial) ? (
           <View style={estilos.aviso}>
@@ -222,6 +239,18 @@ const estilos = StyleSheet.create({
   },
   textoEditar: { fontFamily: Tipografia.media, fontSize: 14, color: Colors.light.text },
 
+  cuota: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 18,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: Marca.primarioTenue,
+  },
+  textoCuota: { flex: 1, fontFamily: Tipografia.media, fontSize: 14, lineHeight: 20, color: Colors.light.text },
   aviso: {
     flexDirection: 'row',
     gap: 10,
