@@ -21,6 +21,7 @@ import { BotonCocinada } from '@/components/receta/boton-cocinada';
 import { ThemedText } from '@/components/themed-text';
 import { VideoReceta } from '@/components/video-receta';
 import { Colors, Marca, MaxContentWidth, Spacing, Tipografia } from '@/constants/theme';
+import { compartirReceta } from '@/lib/compartir';
 import { useCuota } from '@/lib/cuota';
 import { textoIngredienteEscalado } from '@/lib/porciones';
 import { itemDesdeIngrediente, useAgregarALista } from '@/lib/lista';
@@ -164,6 +165,22 @@ export default function DetalleReceta() {
           title: '',
           headerRight: () => (
             <View style={estilos.acciones}>
+              <Pressable
+                onPress={() =>
+                  compartirReceta({
+                    titulo: receta.title,
+                    // Con las porciones que se estan viendo: si la duplicaste, compartes la doble
+                    ingredientes: receta.ingredientes.map((ing) => textoIngredienteEscalado(ing, porcionesBase, porcionesActuales)),
+                    pasos: receta.pasos.map((p) => p.text),
+                    porciones: porcionesActuales,
+                    fuente: receta.source_url,
+                  })
+                }
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Compartir receta">
+                <MaterialIcons name="share" size={23} color={colores.text} />
+              </Pressable>
               <Pressable
                 onPress={() => router.push({ pathname: '/receta/nueva', params: { id: receta.id } })}
                 hitSlop={12}

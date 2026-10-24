@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, BotonGuardar, Detalle, Foto, LineaCreador } from '@/components/descubrir/piezas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
-import { arroba, ETIQUETAS, useDescubrirInicio, type Creador, type TarjetaDescubrir } from '@/lib/descubrir';
+import { CarruselBusquedas } from '@/components/descubrir/carrusel-busquedas';
+import { arroba, ETIQUETAS, SECCIONES, useDescubrirInicio, useDescubrirSeccion, type Creador, type TarjetaDescubrir } from '@/lib/descubrir';
 import { useAncho } from '@/hooks/use-ancho';
 
 /**
@@ -22,9 +23,6 @@ export default function Descubrir() {
   const router = useRouter();
   const { ancho: W } = useAncho();
   const inicio = useDescubrirInicio();
-
-  // Dos filas de chips que se deslizan juntas
-  const filas = [ETIQUETAS.filter((_, i) => i % 2 === 0), ETIQUETAS.filter((_, i) => i % 2 === 1)];
 
   return (
     <View style={[estilos.pantalla, { paddingTop: insets.top }]}>
@@ -46,24 +44,7 @@ export default function Descubrir() {
         </Pressable>
 
         <Text style={estilos.subtitulo}>Búsquedas populares</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
-          <View style={{ gap: 10 }}>
-            {filas.map((fila, i) => (
-              <View key={i} style={estilos.filaChips}>
-                {fila.map((e) => (
-                  <Pressable
-                    key={e.id}
-                    onPress={() => router.push({ pathname: '/descubrir/lista', params: { tipo: 'etiqueta', valor: e.id } })}
-                    accessibilityRole="button"
-                    style={({ pressed }) => [estilos.chip, pressed && estilos.chipPresionado]}>
-                    <Text style={estilos.emojiChip}>{e.emoji}</Text>
-                    <Text style={estilos.textoChip}>{e.nombre}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          </View>
-        </ScrollView>
+        <CarruselBusquedas etiquetas={ETIQUETAS} />
 
         {inicio.isLoading ? (
           <Esqueleto ancho={W} />
@@ -94,6 +75,10 @@ export default function Descubrir() {
               contentContainerStyle={{ paddingHorizontal: MARGEN, gap: 14 }}
               renderItem={({ item, index }) => <TarjetaPopular tarjeta={item} puesto={index + 1} ancho={Math.min(W * 0.6, 260)} />}
             />
+
+            {SECCIONES.map((s) => (
+              <CarruselSeccion key={s.id} id={s.id} titulo={s.titulo} ancho={Math.min(W * 0.46, 200)} />
+            ))}
 
             {inicio.data.creadores.length ? (
               <>
@@ -204,6 +189,48 @@ function TarjetaPopular({ tarjeta, puesto, ancho }: { tarjeta: TarjetaDescubrir;
   );
 }
 
+/** Una seccion del inicio ("Listas en 15 minutos"). Con menos de 3 recetas no se muestra. */
+function CarruselSeccion({ id, titulo, ancho }: { id: string; titulo: string; ancho: number }) {
+  const router = useRouter();
+  const consulta = useDescubrirSeccion(id);
+  const tarjetas = consulta.data ?? [];
+  if (tarjetas.length < 3) return null;
+  return (
+    <>
+      <Cabecera titulo={titulo} alVerTodo={() => router.push({ pathname: '/descubrir/lista', params: { tipo: 'seccion', valor: id } })} />
+      <FlatList
+        horizontal
+        data={tarjetas}
+        keyExtractor={(t) => t.id}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: MARGEN, gap: 12 }}
+        renderItem={({ item }) => <TarjetaChica tarjeta={item} ancho={ancho} />}
+      />
+    </>
+  );
+}
+
+function TarjetaChica({ tarjeta, ancho }: { tarjeta: TarjetaDescubrir; ancho: number }) {
+  const router = useRouter();
+  const alto = ancho * 1.15;
+  return (
+    <View style={{ width: ancho }}>
+      <Pressable
+        onPress={() => router.push({ pathname: '/descubrir/[id]', params: { id: tarjeta.id } })}
+        accessibilityRole="button"
+        accessibilityLabel={tarjeta.titulo}
+        style={({ pressed }) => [{ gap: 6 }, pressed && { opacity: 0.85 }]}>
+        <Foto uri={tarjeta.foto} estilo={{ width: ancho, height: alto }} />
+        <Text style={estilos.tituloChico} numberOfLines={2}>
+          {tarjeta.titulo}
+        </Text>
+        <Detalle tarjeta={tarjeta} />
+      </Pressable>
+      <BotonGuardar tarjeta={tarjeta} estilo={estilos.marcadorEsquina} />
+    </View>
+  );
+}
+
 function TarjetaCreador({ creador }: { creador: Creador }) {
   const router = useRouter();
   return (
@@ -253,22 +280,6 @@ const estilos = StyleSheet.create({
   textoBuscador: { fontFamily: Tipografia.media, fontSize: 16, color: Colors.light.textTenue },
 
   subtitulo: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.textSecondary, paddingHorizontal: 20, marginTop: 22, marginBottom: 10 },
-  chips: { paddingHorizontal: MARGEN },
-  filaChips: { flexDirection: 'row', gap: 8 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: Radios.pildora,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EDE5E0',
-  },
-  chipPresionado: { backgroundColor: Marca.primarioTenue, borderColor: '#FBD9C9' },
-  emojiChip: { fontSize: 16 },
-  textoChip: { fontFamily: Tipografia.seminegrita, fontSize: 15, color: Colors.light.text },
 
   delDia: { marginHorizontal: MARGEN, marginTop: 24, borderRadius: 20, overflow: 'hidden' },
   degradado: { position: 'absolute', left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: 'hidden' },
@@ -303,6 +314,7 @@ const estilos = StyleSheet.create({
     color: '#FFFFFF',
   },
   tituloPopular: { fontFamily: Tipografia.seminegrita, fontSize: 16, lineHeight: 21, color: Colors.light.text },
+  tituloChico: { fontFamily: Tipografia.seminegrita, fontSize: 15, lineHeight: 20, color: Colors.light.text },
   marcadorEsquina: { position: 'absolute', top: 10, right: 10 },
 
   creador: { width: 88, alignItems: 'center', gap: 4 },

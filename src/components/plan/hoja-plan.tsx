@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonOnboarding } from '@/components/onboarding/boton';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
+import { useEspacioConTeclado } from '@/hooks/use-espacio-con-teclado';
 import { COMIDAS, MAX_NOTA, useAgregarAlPlan, useMoverEnPlan, type Comida, type ItemPlan } from '@/lib/plan';
 import { useRecetas } from '@/lib/recetas';
 import { deFecha, diasDeSemana, etiquetaRelativa, hoy, INICIALES, nombreDiaCorto, sumarDias } from '@/lib/semana';
@@ -261,6 +262,10 @@ function VistaQue({
   const lista = recetas.data ?? [];
   const sinRecetas = !recetas.isLoading && !lista.length && !busqueda.trim();
   const alto = useMemo(() => Math.min(height * 0.5, 440), [height]);
+  // Con el teclado abierto la lista cede espacio: el resto de la hoja (cabecera,
+  // segmento, enlace y margenes) mide unos 250 y tiene que seguir a la vista
+  const espacio = useEspacioConTeclado();
+  const estiloLista = useAnimatedStyle(() => ({ height: Math.max(140, Math.min(alto, espacio.value - 250)) }));
 
   return (
     <View style={estilos.columna}>
@@ -294,7 +299,7 @@ function VistaQue({
       </View>
 
       {pestana === 'receta' ? (
-        <View style={{ height: alto }}>
+        <Animated.View style={estiloLista}>
           {sinRecetas ? (
             <View style={estilos.vacio}>
               <Text style={estilos.emoji}>📖</Text>
@@ -350,7 +355,7 @@ function VistaQue({
               )}
             </>
           )}
-        </View>
+        </Animated.View>
       ) : (
         <View style={estilos.columna}>
           <TextInput

@@ -20,7 +20,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvisosLocales } from '@/components/biblioteca/avisos-locales';
 import { HojaAgregar, type DestinoHoja } from '@/components/biblioteca/hoja-agregar';
-import { PrimerosPasos } from '@/components/biblioteca/primeros-pasos';
 import { useGuia, useObjetivoGuia, type ObjetivoGuia } from '@/components/guia/guia';
 import { TarjetaColeccion, TarjetaReceta } from '@/components/biblioteca/tarjetas';
 import { Silueta, TONOS } from '@/components/onboarding/formas';
@@ -29,7 +28,6 @@ import { useAuth } from '@/lib/auth';
 import { useColecciones } from '@/lib/colecciones';
 import { useCuota } from '@/lib/cuota';
 import { dejarFotos, elegirDeGaleria, prepararFotos, tomarFoto } from '@/lib/fotos';
-import { useLista } from '@/lib/lista';
 import { agruparPorDia } from '@/lib/fechas';
 import { useMiPerfil } from '@/lib/perfil';
 import { useAlternarFavorita, useRecetas } from '@/lib/recetas';
@@ -62,8 +60,6 @@ export default function Biblioteca() {
   const cuota = useCuota();
   const alternarFavorita = useAlternarFavorita();
   const guia = useGuia();
-  const { anonima } = useAuth();
-  const listaCompras = useLista();
 
   // La primera vez que se llega aqui, la guia muestra lo importante (una sola vez)
   const listo = !recetas.isLoading && !cuota.isLoading;
@@ -136,22 +132,6 @@ export default function Biblioteca() {
       />
 
       <AvisosLocales />
-      <PrimerosPasos
-        tareas={[
-          { clave: 'importar', titulo: 'Guarda tu primera receta', hecha: !recetas.isLoading && !bibliotecaVacia, alPulsar: () => setHoja(true) },
-          {
-            clave: 'coleccion',
-            titulo: 'Crea una colección',
-            hecha: Boolean(colecciones.data?.length),
-            alPulsar: () => {
-              setPestana('colecciones');
-              setHoja(true);
-            },
-          },
-          { clave: 'lista', titulo: 'Agrega ingredientes a tu lista', hecha: Boolean(listaCompras.data?.length), alPulsar: () => router.push('/lista') },
-          { clave: 'respaldo', titulo: 'Respalda tus recetas con Google', hecha: !anonima, alPulsar: () => router.push('/perfil') },
-        ]}
-      />
 
       <View style={estilos.pestanas}>
         <PestanaCarpeta texto="Todas las recetas" activa={pestana === 'recetas'} alPulsar={() => setPestana('recetas')} />
@@ -167,7 +147,10 @@ export default function Biblioteca() {
           ) : bibliotecaVacia ? (
             <EstadoVacio />
           ) : (
+            // Cada pestana con su key: recetas va en 1 columna y colecciones en 2,
+            // y una FlatList reutilizada no acepta cambiar numColumns en vivo
             <FlatList
+              key="recetas"
               data={filas}
               keyExtractor={(f) => f.clave}
               initialNumToRender={8}
@@ -220,6 +203,7 @@ export default function Biblioteca() {
           <Cargando />
         ) : (
           <FlatList
+            key="colecciones"
             data={colecciones.data ?? []}
             keyExtractor={(c) => c.id}
             numColumns={2}

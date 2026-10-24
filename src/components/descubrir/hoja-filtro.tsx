@@ -19,6 +19,7 @@ import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
+import { useEspacioConTeclado } from '@/hooks/use-espacio-con-teclado';
 import { useConteoBuscar } from '@/lib/descubrir';
 import { GRUPOS_INGREDIENTES, INGREDIENTES, partir, sinTildes, type Categoria, type OpcionFiltro } from '@/lib/filtros';
 
@@ -107,7 +108,12 @@ export function HojaFiltro({
   const conteo = useConteoBuscar(texto, resultado, visible);
 
   const estiloVelo = useAnimatedStyle(() => ({ opacity: abierta.value * 0.45 }));
-  const estiloHoja = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(abierta.value, [0, 1], [height, 0]) }] }));
+  const espacio = useEspacioConTeclado();
+  const estiloHoja = useAnimatedStyle(() => ({
+    // Con el teclado abierto la hoja se achica en vez de salirse por arriba
+    height: Math.min(height * 0.88, espacio.value),
+    transform: [{ translateY: interpolate(abierta.value, [0, 1], [height, 0]) }],
+  }));
 
   if (!montada || !actual) return null;
 
@@ -151,7 +157,7 @@ export function HojaFiltro({
       </Animated.View>
 
       <KeyboardAvoidingView behavior="padding" style={estilos.contenedorHoja} pointerEvents="box-none">
-        <Animated.View style={[estilos.hoja, { height: height * 0.88 }, estiloHoja]}>
+        <Animated.View style={[estilos.hoja, estiloHoja]}>
           <View style={estilos.asa} />
           <View style={estilos.cabecera}>
             <Pressable onPress={alCerrar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Cerrar" style={estilos.cerrar}>
@@ -179,7 +185,7 @@ export function HojaFiltro({
             ) : null}
           </View>
 
-          <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
             {actual.id === 'ing' ? (
               q ? (
                 <Rejilla opciones={INGREDIENTES.filter(coincide)} elegidas={elegidas} clave={clave} alternar={alternar} />

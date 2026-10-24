@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, TarjetaRejilla } from '@/components/descubrir/piezas';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
-import { arroba, etiqueta, useCreador, useDescubrirInicio, useDescubrirLista, type TipoLista } from '@/lib/descubrir';
+import { arroba, etiqueta, seccion, useCreador, useDescubrirInicio, useDescubrirLista, type TipoLista } from '@/lib/descubrir';
 import { ANCHO_MAXIMO, useAncho } from '@/hooks/use-ancho';
 
 /** "Ver todo": rejilla de 2 columnas de populares, de una etiqueta o de un creador; o todos los creadores. */
@@ -29,7 +29,9 @@ function Rejilla({ tipo, valor }: { tipo: TipoLista; valor?: string }) {
   const e = tipo === 'etiqueta' && valor ? etiqueta(valor) : undefined;
   const n = lista.data?.length ?? 0;
 
-  const titulo = tipo === 'populares' ? 'Más populares esta semana' : e ? `${e.emoji} ${e.nombre}` : arroba(creador.data?.usuario);
+  const s = tipo === 'seccion' && valor ? seccion(valor) : undefined;
+  const titulo =
+    tipo === 'populares' ? 'Más populares esta semana' : s ? s.titulo : e ? `${e.emoji} ${e.nombre}` : arroba(creador.data?.usuario);
 
   return (
     <View style={[estilos.pantalla, { paddingTop: insets.top }]}>

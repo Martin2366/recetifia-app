@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Foto, LineaCreador } from '@/components/descubrir/piezas';
 import { VideoReceta } from '@/components/video-receta';
 import { Colors, Marca, Radios, Tipografia } from '@/constants/theme';
+import { compartirReceta } from '@/lib/compartir';
 import { etiqueta, useGuardarDeDescubrir, useRecetaDescubrir, useYaGuardada } from '@/lib/descubrir';
 import { exito } from '@/lib/haptica';
 import { ANCHO_MAXIMO, useAncho } from '@/hooks/use-ancho';
@@ -135,6 +136,23 @@ export default function RecetaDescubrir() {
         <MaterialCommunityIcons name="chevron-left" size={28} color={Colors.light.text} />
       </Pressable>
 
+      <Pressable
+        onPress={() =>
+          compartirReceta({
+            titulo: tarjeta.titulo,
+            ingredientes: ingredientes.map((i) => i.raw_text),
+            pasos: pasos.map((p) => p.text),
+            porciones: receta.servings,
+            fuente: tarjeta.source_url,
+          })
+        }
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Compartir receta"
+        style={[estilos.compartir, { top: insets.top + 8 }]}>
+        <MaterialCommunityIcons name="share-variant" size={22} color={Colors.light.text} />
+      </Pressable>
+
       <View style={[estilos.pie, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           onPress={alGuardar}
@@ -218,6 +236,22 @@ const estilos = StyleSheet.create({
   volver: {
     position: 'absolute',
     left: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  // Igual que volver, pero a la derecha (con left no se puede anular en la web)
+  compartir: {
+    position: 'absolute',
+    right: 14,
     width: 42,
     height: 42,
     borderRadius: 21,

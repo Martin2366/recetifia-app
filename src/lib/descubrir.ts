@@ -50,7 +50,46 @@ export type InicioDescubrir = {
   creadores: Creador[];
 };
 
-export type TipoLista = 'populares' | 'creador' | 'etiqueta';
+export type TipoLista = 'populares' | 'creador' | 'etiqueta' | 'seccion';
+
+/**
+ * Carruseles del inicio, debajo de "Más populares esta semana". Cada uno filtra
+ * el catalogo por etiquetas (alcanza con una) o por minutos, y ordena por lo
+ * que mas se guardo esta semana. Una seccion con menos de 3 recetas no se ve.
+ */
+export type Seccion = { id: string; titulo: string; etiquetas?: string[]; maxMinutos?: number };
+
+export const SECCIONES: Seccion[] = [
+  { id: 'dulce', titulo: 'Para tu antojo de algo dulce 🍰', etiquetas: ['tipo:postre', 'postres'] },
+  { id: 'rapidas', titulo: 'Listas en 15 minutos ⏱️', maxMinutos: 15 },
+  { id: 'cena', titulo: '¿Qué cenamos hoy? 🌙', etiquetas: ['tipo:cena'] },
+  { id: 'economicas', titulo: 'Ricas y que cuidan el bolsillo 💸', etiquetas: ['ocasion:economica', 'economico'] },
+];
+
+export function seccion(id: string): Seccion | undefined {
+  return SECCIONES.find((s) => s.id === id);
+}
+
+function consultaSeccion(s: Seccion) {
+  let q = supabase.from('descubrir_tarjetas').select('*');
+  if (s.etiquetas) q = q.overlaps('etiquetas', s.etiquetas);
+  if (s.maxMinutos) q = q.lte('minutos', s.maxMinutos);
+  return q.order('semana', { ascending: false }).order('puntaje', { ascending: false });
+}
+
+export function useDescubrirSeccion(id: string) {
+  return useQuery({
+    queryKey: [...claveDescubrir, 'seccion', id],
+    staleTime: FRESCO,
+    queryFn: async (): Promise<TarjetaDescubrir[]> => {
+      const s = seccion(id);
+      if (!s) return [];
+      const { data, error } = await consultaSeccion(s).limit(10);
+      if (error) throw error;
+      return (data ?? []) as TarjetaDescubrir[];
+    },
+  });
+}
 
 /** El catalogo cambia poco: se pide de nuevo cada 10 minutos como mucho. */
 const FRESCO = 10 * 60 * 1000;
@@ -74,6 +113,13 @@ export function useDescubrirLista(tipo: TipoLista, valor?: string) {
     queryKey: [...claveDescubrir, 'lista', tipo, valor ?? ''],
     staleTime: FRESCO,
     queryFn: async (): Promise<TarjetaDescubrir[]> => {
+      if (tipo === 'seccion') {
+        const s = seccion(valor ?? '');
+        if (!s) return [];
+        const { data, error } = await consultaSeccion(s).limit(60);
+        if (error) throw error;
+        return (data ?? []) as TarjetaDescubrir[];
+      }
       let q = supabase.from('descubrir_tarjetas').select('*');
       if (tipo === 'creador') q = q.eq('creador_id', valor!).order('created_at', { ascending: false });
       else if (tipo === 'etiqueta') q = q.contains('etiquetas', [valor!]).order('semana', { ascending: false }).order('created_at', { ascending: false });
