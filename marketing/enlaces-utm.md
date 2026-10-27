@@ -4,7 +4,18 @@ Cada enlace lleva a la ficha de Play de Recetifia con una etiqueta. Play Console
 
 Regla: un enlace distinto por lugar y por anuncio. Si dos anuncios comparten enlace, no se puede saber cuál trajo la instalación.
 
-## Bios de las redes (orgánico)
+## Enlaces cortos para las bios (desde el 27 oct)
+
+Los enlaces largos no caben en la bio de TikTok. Estas páginas de GitHub Pages (`docs/tt`, `docs/ig`, `docs/yt`, `docs/fb`) redirigen al instante al enlace largo de cada red, así que la UTM se cuenta igual en Play Console.
+
+| Dónde | Enlace corto |
+|---|---|
+| TikTok | `martin2366.github.io/recetifia-app/tt` |
+| Instagram | `martin2366.github.io/recetifia-app/ig` |
+| YouTube | `martin2366.github.io/recetifia-app/yt` |
+| Facebook | `martin2366.github.io/recetifia-app/fb` |
+
+## Bios de las redes (orgánico, enlaces largos)
 
 | Dónde | Enlace |
 |---|---|
